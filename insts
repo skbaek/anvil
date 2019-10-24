@@ -1,0 +1,39 @@
+% Refutation found. Thanks to Tanya\
+% SZS status Unsatisfiable for go
+% SZS output start Proof for go
+fof(f1,axiom,(
+  a = b),
+  file('goal',unknown)).
+fof(f2,axiom,(
+  b = c),
+  file('goal',unknown)).
+fof(f3,axiom,(
+  f(a) \= f(c)),
+  file('goal',unknown)).
+fof(f4,plain,(
+  a = b),
+  inference(cnf_transformation,[],[f1])).
+fof(f5,plain,(
+  b = c),
+  inference(cnf_transformation,[],[f2])).
+fof(f6,plain,(
+  f(a) \= f(c)),
+  inference(cnf_transformation,[],[f3])).
+fof(f7,plain,(
+  a = c),
+  inference(definition_unfolding,[],[f4,f5])).
+fof(f8,plain,(
+  f(c) \= f(c)),
+  inference(definition_unfolding,[],[f6,f7])).
+fof(f9,plain,(
+  $false),
+  inference(trivial_inequality_removal,[],[f8])).
+% SZS output end Proof for go
+% ------------------------------
+% Version: Vampire 4.2.2 (commit e1949dd on 2017-12-14 18:39:21 +0000)
+% Termination reason: Refutation
+
+% Memory used [KB]: 4733
+% Time elapsed: 0.007 s
+% ------------------------------
+% ------------------------------

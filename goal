@@ -1,0 +1,6 @@
+tff(0,axiom,a=b).
+
+tff(1,axiom,c=b).
+
+tff(2,axiom,~ (f(c)=f(a))).
+

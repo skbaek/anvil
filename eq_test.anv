@@ -1,0 +1,2 @@
+theorem(0, [a = b, c = b, ~ (f(c) = f(a))], skip).
+
