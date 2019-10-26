@@ -95,6 +95,44 @@ inst_string(Inst, Str) :-
   term_string(Inst, InstStr),
   string_concat(InstStr, "\n", Str).
 
+check(_, open(_)).
+
+check(Hyps, closed(Form)) :- 
+  member(Form, Hyps).
+
+check(Hyps, fa_elim(Term, Prf, Form)) :- 
+  conc(Prf, FaForm), 
+  fa_inst(Term, FaForm, FormTerm), 
+  Form =@= FormTerm, 
+  check(Hyps, Prf).
+
+check(Hyps, imp_elim(PrfA, PrfB, FormB)) :- 
+  conc(PrfA, FormA => FormB), 
+  conc(PrfB, FormA), 
+  check(Hyps, PrfA),
+  check(Hyps, PrfB).
+
+check(Hyps, not_elim(PrfA, PrfB, $false)) :- 
+  conc(PrfA, ~ Form), 
+  conc(PrfB, Form), 
+  check(Hyps, PrfA),
+  check(Hyps, PrfB).
+
+check(Hyps, and_elim_left(Prf, Conc)) :- 
+  conc(Prf, Conc & _), 
+  check(Hyps, Prf).
+
+check(Hyps, and_elim_right(Prf, Conc)) :- 
+  conc(Prf, _ & Conc), 
+  check(Hyps, Prf).
+
+check(Hyps, raa(Prf, Conc)) :- 
+  conc(Prf, $false), 
+  check([~ Conc | Hyps], Prf).
+
+
+
+
 % branches_string(Bchs, on, Str) :- 
 %   reverse(Bchs, RevBchs),
 %   maplist(branch_string, RevBchs, Strs),
@@ -142,11 +180,7 @@ fa_inst(Trm, (! [X] : Form), NewForm) :- !,
   copy_term((! [X] : Form), (! [Y] : NewForm)), 
   Y = Trm.
 
-break_gamma(Trm, (! [X] : Frm), NewFrm) :- !, 
-  copy_term((! [X] : Frm), (! [Y] : NewFrm)), 
-  Y = Trm.
-
-break_gamma(Trm, (! [X | Xs] : Frm), (! Ys : NewFrm)) :- !, 
+fa_inst(Trm, (! [X | Xs] : Frm), (! Ys : NewFrm)) :- !, 
   copy_term((! [X | Xs] : Frm), (! [Y | Ys] : NewFrm)), 
   Y = Trm.
 
@@ -157,39 +191,6 @@ break_gamma(Trm, ~ (? [X] : Frm), ~ NewFrm) :- !,
 break_gamma(Trm, ~ (? [X | Xs] : Frm), ~ (? Ys : NewFrm)) :- !, 
   copy_term((? [X | Xs] : Frm), (? [Y | Ys] : NewFrm)), 
   Y = Trm.
-
-/* 
-branch_nth0(State, Num, Frm) :-
-  get_branch(State, Bch),
-  nth0(Num, Bch, Frm).
-  
-branch_member(State,Frm) :-
-  get_branch(State, Bch),
-  member(Frm, Bch).
-
-branch_where(State, Frm, Num) :-
-  get_branch(State, Bch),
-  variant_nth0(Num, Bch, Frm).
-
-branch_has(State, Frm) :-
-  get_branch(State, Bch),
-  variant_member(Frm, Bch).
-
-branch_length(State, Num) :-
-  get_branch(State, Bch),
-  length(Bch, Num).
-
-*/
-
-% check_msg(_, _, over, over).
-% 
-% check_msg(Bch, Prf, into, Mode) :- 
-%   shell("clear"),
-%   branch_string(Bch, BchStr),
-%   term_string(Prf, PrfStr),
-%   strings_concat([BchStr, "Proof = ", PrfStr, "\n"], Str),
-%   write(Str),
-%   prompt(Mode).
 
 verify([~ ~ Frm | Bch], dne(Prf)) :-
   verify([Frm, ~ ~ Frm | Bch], Prf).
@@ -222,9 +223,6 @@ verify(Bch, tt(Prf)) :-
 verify(Bch, ff(Prf)) :-
   verify([~ $false | Bch], Prf).
 
-
-mk_pair(X, Y, (X, Y)).
-
 mk_fun_mono(0, VarsA, [], VarsB, [], Fun, (TrmA = TrmB)) :- !,
   TrmA =.. [Fun | VarsA],
   TrmB =.. [Fun | VarsB].
@@ -247,10 +245,6 @@ mk_rel_mono(Num, SrcVars, [X | SrcExt], TgtVars, [Y | TgtExt],
 
 mk_rel_mono(Num, Pred, Frm) :- 
   mk_rel_mono(Num, SrcVars, SrcVars, TgtVars, TgtVars, Pred, Frm).
-
-lits_align(~SrcAtm, ~TgtAtm, TgtAtm, SrcAtm) :- !.
-
-lits_align(SrcAtm, TgtAtm, SrcAtm, TgtAtm). 
 
 % hypothesis(Frm) :- 
 %   fof(_, Type, Frm), 
@@ -354,28 +348,23 @@ desugar(Atm, Atm).
 %   subtract(IdInsts, IdsInsts, Diff),
 %   append(Diff, IdsInsts, Insts).
 
-id_form(Id, Form) :-
-  fof(Id, _, Conc, _),
-  desugar(Conc, Form).
-
-id_tree(Id, hyp(Form)) :-
-  fof(Id, _, Conc, file(_, _)),
-  desugar(Conc, Form).
-
-id_tree(Id, def(Form, Rul)) :-
-  fof(Id, _, Conc, introduced(Rul, _)), !,
-  desugar(Conc, Form).
-
-id_tree(Id, inf(Trees, Forms, Form, Rul)) :-  
-  fof(Id, _, Conc, inference(Rul, _, Ids)), !,
-  maplist(id_tree, Ids, Trees),
-  maplist(id_form, Ids, Forms),
-  desugar(Conc, Form).
-
-% Tree : hyp(Conc) | def()
-
-% Input  : (Tree, Branch, Symbs)
-% Output : (Branch, Symbs, Prf)
+% id_form(Id, Form) :-
+%   fof(Id, _, Conc, _),
+%   desugar(Conc, Form).
+% 
+% id_tree(Id, hyp(Form)) :-
+%   fof(Id, _, Conc, file(_, _)),
+%   desugar(Conc, Form).
+% 
+% id_tree(Id, def(Form, Rul)) :-
+%   fof(Id, _, Conc, introduced(Rul, _)), !,
+%   desugar(Conc, Form).
+% 
+% id_tree(Id, inf(Trees, Forms, Form, Rul)) :-  
+%   fof(Id, _, Conc, inference(Rul, _, Ids)), !,
+%   maplist(id_tree, Ids, Trees),
+%   maplist(id_form, Ids, Forms),
+%   desugar(Conc, Form).
 
 prove_args(['-p', Source, Target | _], Source, Target).
 prove_args([_ | Argv], Source, Target) :-
@@ -399,213 +388,34 @@ to verify a proof at [target]\n
 =========== End ==========\n"
   ).
 
-main(Argv) :-
-  dynamic(theorem/2),
-  dynamic(fof/4),
-  (
-    ( prove_args(Argv, Source, Target), 
-      prove_save(Source, Target) ) ;
-    ( verify_args(Argv, Source), 
-      verify(Source) ) ;
-    help_msg
-  ).
+% main(Argv) :-
+%   dynamic(theorem/2),
+%   dynamic(fof/4),
+%   (
+%     ( prove_args(Argv, Source, Target), 
+%       prove_save(Source, Target) ) ;
+%     ( verify_args(Argv, Source), 
+%       verify(Source) ) ;
+%     help_msg
+%   ).
 
 punctuate(Term, Str) :-
   term_string(Term, TermStr),
   string_concat(TermStr, ".", Str).
 
-prove_save(Source, Target) :-
-  retractall(fof(_, _, _, _)),
-  consult(Source),
-  fof(Id,_, $false, _),
-  id_tree(Id, Tree),
-  prove((Tree, [], []), (Smt, _, Prf)),
-  punctuate(theorem(Smt, Prf), Str),
-  write_file(Target, Str).
+% prove_save(Source, Target) :-
+%   retractall(fof(_, _, _, _)),
+%   consult(Source),
+%   fof(Id,_, $false, _),
+%   id_tree(Id, Tree),
+%   prove((Tree, [], []), (Smt, _, Prf)),
+%   punctuate(theorem(Smt, Prf), Str),
+%   write_file(Target, Str).
 
-is_hyp((file(_, _), _)).
-
-id_conc(Id, Conc) :- 
-  fof(Id, _, Conc, _).
-
-init_goal((inference(Rul, _, PremIds), Conc), deduce(Prems, Conc, Rul)) :- 
-  maplist(id_conc, PremIds, Prems).
-
-prove(deduce(Prems, Conc, Rul), Prf) :- 
-  member(Rul, [definition_unfolding]), 
-  lits_sub_terms(Prems, Terms),
-  init_ecs(Terms, InitECs), 
-  collect(mk_eqhyp, Prems, EqHyps),
-  cc(EqHyps, InitECs, ECs),
-  first(prove_by_ecs(ECs, Conc), Prems, Prf). 
-
-prove_debug(Source) :-
-  dynamic(fof/4),
-  retractall(fof(_, _, _, _)),
-  consult(Source),
-  findall((Just, Conc), fof(_, _, Conc, Just), Lines),
-  exclude(is_hyp, Lines, Steps),
-  maplist(init_goal, Steps, Goals),
-  write(Goals).
-
-
-verify(Source) :-
-  retractall(theorem(_, _)),
-  consult(Source),
-  theorem(Smt, Prf),
-  verify(Smt, Prf),
-  write("Proof verified : "),
-  maplist(form_string, Smt, Strs),
-  strings_concat_with(", ", Strs, Str),
-  write(Str).
-
-extend_branch(Bch, Form, Bch, Num) :-
-  where(Form, Bch, Num), !.
-
-extend_branch(Bch, Form, NewBch, Num) :-
-  append(Bch, [Form], NewBch),
-  length(Bch, Num).
-  
-
-/* Main loop */
-
-closure(Bch, copy(Num, ff(close))) :- 
-  where($false, Bch, Num).
-  
-closure(Bch, tt(copy(Num, close))) :- 
-  where(~ $true, Bch, Num).
-
-closure(Bch, copy(NumA, (copy(NumB, close)))) :- 
-  where(Form, Bch, NumA), 
-  where(~ Form, Bch, PredNumB), 
-  NumB is PredNumB + 1.
-
-prove((_, Bch, Symbs), (Bch, Symbs, Prf)) :-  
-  closure(Bch, Prf).
-
-prove((_, Bch, Symbs), (NewBch, Symbs, copy(NumC, gamma(Trm, copy(NumB, close))))) :-  
-  where(~ (Trm = Trm), Bch, NumA), 
-  NumB is NumA + 2, 
-  extend_branch(Bch, (! [X] : (X = X)), NewBch, NumC).
-
-prove(
-  (inf([hyp(ConcA) | Trees], Prems, ConcB, Rul), Bch, Symbs), 
-  (NewBch, NewSymbs, Prf)
-) :-  
-  (
-    member(ConcA, Bch) ->
-    TempBch = Bch ; 
-    append(Bch, [ConcA], TempBch)
-  ),
-  prove(
-    (inf(Trees, Prems, ConcB, Rul), TempBch, Symbs),
-    (NewBch, NewSymbs, Prf)
-  ).
-
-prove(
-  (inf([def(Atom <=> Form, _) | Trees], Prems, Conc, Rul), Bch, Symbs), 
-  (NewBch, NewSymbs, def(Atom, Form, Prf))
-) :-  
-  atom(Atom),
-  not(uses(Atom, Bch)),
-  prove(
-    (inf(Trees, Prems, Conc, Rul), [(Atom <=> Form) | Bch], [Atom | Symbs]), 
-    ([(Atom <=> Form) | NewBch], NewSymbs, Prf)
-  ).
-
-prove(
-  (inf([Tree | Trees], Prems, Conc, Rul), Bch, Symbs), 
-  (NewBch, NewSymbs, cut(Prem, PrfA, PrfB))
-) :- 
-  Tree = inf(_, _, _, _), 
-  length(Trees, Lth),
-  htn0(Lth, Prems, Prem), 
-  prove(
-    (Tree, [~ Prem | Bch], Symbs),
-    ([~ Prem | TempBch], TempSymbs, PrfB)
-  ),
-  prove(
-    (inf(Trees, Prems, Conc, Rul), [Prem | TempBch], TempSymbs),
-    ([Prem | NewBch], NewSymbs, PrfA) 
-  ).
-
-
-% prove(State) :- 
-%   get_insts(State, [lemma([Src | _], Tgt, definition_unfolding)]),
-%   lits_align(Src, Tgt, Ante, Cons),
-%   Ante =.. [Pred | AnteArg], 
-%   Cons =.. [Pred | ConsArg], 
-%   maplist(mk_pair, AnteArg, ConsArg, Pairs),
-%   length(Pairs, Lth),
-%   mk_rel_mono(Lth, Pred, Mono), 
-%   posit_insts(State, Mono, TempInsts),
-%   append(TempInsts, [mono(Pairs), copy_form(Src), beta], NewInsts), 
-%   set_insts_auto(State, NewInsts, NewState),
-%   prove(NewState).
-% prove(State) :- 
-%   get_insts(State, [defin(Atom <=> Frm, _) | Insts]),
-%   set_insts_auto(State, [def(Atom, Frm) | Insts], NewState),
-%   prove(NewState).
-
-% prove(
-%   (inf([], Prems, Conc, Rul), Bch, Symbs), 
-%   (NewBch, Symbs, cut(Atom, PrfA, PrfB))
-% ) :-  
-%   % If Rul is one of equational rules
-%   member(Rul, [definition_unfolding]),
-%   contra_cc([~ Conc | Prems], Atom, PosPrf, NegPrf), 
-%   prove_eq([Atom | Bch], NegPrf, [Atom | TempBch], PrfA),
-%   prove_eq([~ Atom | TempBch], PosPrf, [~ Atom | NewBch], PrfB).
-
-% prove_rel_mono(Bch, [Eqn | Eqns], Src, NewBch, 
-%   gamma(TrmA, gamma(TrmB, cut((TrmA = TrmB), beta(PrfA), PrfB))),
-%   lhs(Eqn, TrmA),
-%   rhs(Eqn, TrmB),
-%   prove_eq(Bch, Eqn, TempBch, PrfB), 
-%   prove_rel_mono(TempBch, Eqns, Src, NewBch, PrfA). 
-
-% prove_rel_mono(Bch, [Eqn | Eqns], Src, NewBch, 
-%   gamma(TrmA, gamma(TrmB, cut((TrmA = TrmB), beta(PrfA), PrfB))),
-  
-
-
-
-% prove_rel_mono(Bch, Rel, [Eqn | Eqns], Src, NewBch, copy(Num, Prf)) :- 
-%   length(Eqns, Lth),
-%   mk_rel_mono(Lth, Rel, Form), 
-%   extend_branch(Bch, Form, NewBch, Num),
+% mk_imp([], Conc, Conc). 
 % 
-    
-
-
-
-
-
-
-% prove(
-%   (inf([], Prems, Conc, _), Bch, Symbs), 
-%   (NewBch, Symbs, copy(Lth, Prf))
-% ) :-  
-%   length(Bch, Lth),
-%   mk_imp(Prems, Conc, Imp), 
-%   append(Bch, [Imp], NewBch),
-%   mk_triv_prf([Imp | NewBch], Imp, Prf).
-
-mk_imp([], Conc, Conc). 
-
-mk_imp([Prem | Prems], Conc, (Prem => Imp)) :-  
-  mk_imp(Prems, Conc, Imp). 
-
-mk_triv_prf(_, $false, ff(close)).
-
-% Bch is the current branch, with Cons at the tip.
-mk_triv_prf(Bch, Cons, copy(Num, close)) :- 
-  nth0(Num, Bch, ~ Cons).
-
-% Bch is the current branch, with (Ante => Cons) at the tip.
-mk_triv_prf(Bch, (Ante => Cons), copy(Num, beta(Prf))) :- 
-  nth0(Num, Bch, Ante),
-  mk_triv_prf([Cons, Ante | Bch], Cons, Prf).
+% mk_imp([Prem | Prems], Conc, (Prem => Imp)) :-  
+%   mk_imp(Prems, Conc, Imp). 
 
 unneg(~ Atom, Atom) :- !.
 unneg(Atom, Atom).
@@ -614,10 +424,13 @@ all_sub_terms(Term, Terms) :-
   findall(SubTerm, sub_term(SubTerm, Term), SubTerms),
   sort(SubTerms, Terms).
 
+atom_sub_terms($false, []) :- !.
+atom_sub_terms($true,  []) :- !.
 atom_sub_terms(Atom, Terms) :-
   Atom =.. [_ | Args],
   maplist(all_sub_terms, Args, Termss),
-  union(Termss, Terms).
+  union(Termss, TempTerms),
+  sort(TempTerms, Terms).
 
 lits_sub_terms(Lits, Terms) :- 
   maplist(unneg, Lits, Atoms),
@@ -632,60 +445,87 @@ member_tree(Elem, bridge(_, _, EC)) :-
 member_ec(Elem, (Tree, _)) :-
   member_tree(Elem, Tree).
 
-lhs(eqhyp(LHS, _), LHS).
-lhs(eqsymm(LHS, _, _), LHS).
-lhs(eqtrans(LHS, _, _, _), LHS).
-lhs(eqmono(LHS, _, _), LHS).
+lhs(EqPrf, LHS) :-
+  conc(EqPrf, (LHS = _)).
 
-rhs(eqhyp(_, RHS), RHS).
-rhs(eqsymm(_, _, RHS), RHS).
-rhs(eqtrans(_, _, _, RHS), RHS).
-rhs(eqmono(_, _, RHS), RHS).
+rhs(EqPrf, RHS) :-
+  conc(EqPrf, (_ = RHS)).
 
 % Propagate the effects of equating TrmA and TrmB
 propagate(Eqn, ECs, NewECs) :- 
   lhs(Eqn, LHS),
   rhs(Eqn, RHS),
-  pluck(member_ec(LHS), ECs, ECL, ECs1),
-  pluck(member_ec(RHS), ECs1, ECR, ECs2),
+  pick(member_ec(LHS), ECs, ECL, ECs1),
+  pick(member_ec(RHS), ECs1, ECR, ECs2),
   ECL = (TreeL, SupsL),
   ECR = (TreeR, SupsR),
   union(SupsL, SupsR, Sups),
   list_prod(SupsL, SupsR, SupPairs), 
   ECs3 = [(bridge(TreeL, Eqn, TreeR), Sups) | ECs2], 
-  collect(calc_eqv(ECs3), SupPairs, NewEqns), 
+  collect(prove_eq_ecs(ECs3), SupPairs, NewEqns), 
   foldl(propagate, NewEqns, ECs3, NewECs).
   
-calc_eqv(ECs, (TrmA, TrmB), eqmono(TrmA, Eqns, TrmB)) :- 
-  TrmA =.. [Pred | ArgsA],
-  TrmB =.. [Pred | ArgsB],
-  maplist(calc_eqn(ECs), ArgsA, ArgsB, Eqns).
+prove_eq_ecs(ECs, (TrmA, TrmB), Prf) :- 
+  TrmA =.. [Fun | TrmsA],
+  TrmB =.. [Fun | TrmsB],
+  length(TrmsA, Lth),
+  mk_fun_mono(Lth, Fun, Mono), 
+  prove_mono_cons(ECs, open(Mono), TrmsA, TrmsB, Prf).
 
-calc_eqn(ECs, TrmA, TrmB, Eqn) :- 
-  first(calc_eqn_in_ec(TrmA, TrmB), ECs, Eqn).
+prove_eq_ecs(ECs, TrmA, TrmB, Eqn) :- 
+  first(prove_eq_ec(TrmA, TrmB), ECs, Eqn).
 
-calc_eqn_in_ec(TrmA, TrmB, (Tree, _), Eqn) :- 
-  calc_eqn_in_tree(TrmA, TrmB, Tree, Eqn).
+prove_eq_ec(TrmA, TrmB, (Tree, _), Eqn) :- 
+  prove_eq_et(TrmA, TrmB, Tree, Eqn).
 
-calc_eqn_in_tree(Trm, Trm, elem(Trm), eqrefl(Trm)). 
+prove_eq_trans([_, _], [Prf], Prf). 
 
-calc_eqn_in_tree(TrmA, TrmB, bridge(TreeL, Eqn, TreeR), NewEqn) :- 
+prove_eq_trans([TrmA, TrmB | Trms], [PrfAB | Prfs], 
+  imp_elim(
+    imp_elim(
+      fa_elim(
+        TrmC,
+        fa_elim(
+          TrmB,
+          fa_elim(
+            TrmA, 
+            open(! [X, Y, Z] : ((X = Y) => ((Y = Z) => (X = Z)))), 
+            (! [Y, Z] : ((TrmA = Y) => ((Y = Z) => (TrmA = Z))))
+          ), 
+          (! [Z] : ((TrmA = TrmB) => ((TrmB = Z) => (TrmA = Z))))
+        ),
+        ((TrmA = TrmB) => ((TrmB = TrmC) => (TrmA = TrmC)))
+      ),
+      PrfAB,
+      ((TrmB = TrmC) => (TrmA = TrmC))
+    ),
+    PrfBC, 
+    (TrmA = TrmC)
+  )
+) :-
+  prove_eq_trans([TrmB | Trms], Prfs, PrfBC), 
+  rhs(PrfBC, TrmC).
+
+prove_eq_et(Trm, Trm, elem(Trm), 
+  fa_elim(Trm, open(! [X] : (X = X)), (Trm = Trm))). 
+
+prove_eq_et(TrmA, TrmB, bridge(TreeL, PrfLR, TreeR), PrfAB) :- 
   ( member_tree(TrmA, TreeL), 
     member_tree(TrmB, TreeL), 
-    calc_eqn_in_tree(TrmA, TrmB, TreeL, NewEqn) ) ; 
+    prove_eq_et(TrmA, TrmB, TreeL, PrfAB) ) ; 
   ( member_tree(TrmA, TreeR), 
     member_tree(TrmB, TreeR), 
-    calc_eqn_in_tree(TrmA, TrmB, TreeR, NewEqn) ) ; 
+    prove_eq_et(TrmA, TrmB, TreeR, PrfAB) ) ; 
   ( lhs(Eqn, TrmL), 
     rhs(Eqn, TrmR), 
-    calc_eqn_in_tree(TrmA, TrmL, TreeL, EqnL), 
-    calc_eqn_in_tree(TrmR, TrmB, TreeR, EqnR), 
-    NewEqn = eqtrans(TrmA, EqnL, eqtrans(TrmL, Eqn, EqnR, TrmB), TrmB) ) ;
+    prove_eq_et(TrmA, TrmL, TreeL, PrfL), 
+    prove_eq_et(TrmR, TrmB, TreeR, PrfR), 
+    prove_eq_trans([TrmA, TrmL, TrmR, TrmB], [PrfL, PrfLR, PrfR], PrfAB) ) ;
   ( lhs(Eqn, TrmL), 
     rhs(Eqn, TrmR), 
-    calc_eqn_in_tree(TrmB, TrmL, TreeL, EqnL), 
-    calc_eqn_in_tree(TrmR, TrmA, TreeR, EqnR), 
-    NewEqn = eqtrans(TrmB, EqnL, eqtrans(TrmL, Eqn, EqnR, TrmA), TrmA) ).
+    prove_eq_et(TrmB, TrmL, TreeL, PrfL), 
+    prove_eq_et(TrmR, TrmA, TreeR, PrfR), 
+    prove_eq_trans([TrmB, TrmL, TrmR, TrmA], [PrfL, PrfLR, PrfR], PrfAB) ).
 
 cc(EqHyps, ECs, NewECs) :- 
   foldl(propagate, EqHyps, ECs, NewECs).
@@ -700,303 +540,190 @@ init_ec(Terms, Term, (elem(Term), Sups)) :-
 init_ecs(Terms, ECs) :- 
   maplist(init_ec(Terms), Terms, ECs).
 
-mk_eqhyp((TrmA = TrmB), eqhyp(TrmA, TrmB)).
+mk_eqhyp((TrmA = TrmB), open(TrmA = TrmB)).
 
-ne_self_prf((~ (Trm = Trm), Prf), (Trm, Prf)).
+% ne_self_prf((~ (Trm = Trm), Prf), (Trm, Prf)).
+% 
+% find_contra(NormLits, (Trm = Trm), refleq, ReflNePrf) :- 
+%   first(ne_self_prf, NormLits, (Trm, ReflNePrf)).
+% 
+% find_contra(NormLits, Atom, PosPrf, NegPrf) :- 
+%   member((~ Atom, NegPrf), NormLits), 
+%   member((Atom, PosPrf), NormLits).
+% 
+% representative(elem(Term), Term).
+% 
+% representative(bridge(Tree, _, _), Term) :-
+%   representative(Tree, Term).
+% 
+% normalize_term_in(Term, (Tree, _), (Eqn, NormTerm)) :- 
+%   representative(Tree, NormTerm), 
+%   prove_eq_et(Term, NormTerm, Tree, Eqn).
+% 
+% normalize_term(ECs, Term, Eqn, NormTerm) :- 
+%   first(normalize_term_in(Term), ECs, (Eqn, NormTerm)).
 
-find_contra(NormLits, (Trm = Trm), refleq, ReflNePrf) :- 
-  first(ne_self_prf, NormLits, (Trm, ReflNePrf)).
 
-find_contra(NormLits, Atom, PosPrf, NegPrf) :- 
-  member((~ Atom, NegPrf), NormLits), 
-  member((Atom, PosPrf), NormLits).
+eq_mod_ec(TrmA, TrmB, EC) :- 
+  member_ec(TrmA, EC),
+  member_ec(TrmB, EC).
 
-representative(elem(Term), Term).
+eq_mod_ecs(ECs, TrmA, TrmB) :- 
+  any(eq_mod_ec(TrmA, TrmB), ECs).
 
-representative(bridge(Tree, _, _), Term) :-
-  representative(Tree, Term).
+iff_mod_ecs(ECs, AtomA, AtomB) :- 
+  AtomA =.. [Rel | TermsA],
+  AtomB =.. [Rel | TermsB],
+  maplist(eq_mod_ecs(ECs), TermsA, TermsB).
 
-normalize_term_in(Term, (Tree, _), (Eqn, NormTerm)) :- 
-  representative(Tree, NormTerm), 
-  calc_eqn_in_tree(Term, NormTerm, Tree, Eqn).
+prove_by_ecs(ECs, Lits, not_elim(open(~ (TrmA = TrmB)), Prf, $false)) :- 
+  occurs((~ (TrmA = TrmB)), Lits),
+  eq_mod_ecs(ECs, TrmA, TrmB),
+  prove_eq_ecs(ECs, TrmA, TrmB, Prf).
 
-normalize_term(ECs, Term, Eqn, NormTerm) :- 
-  first(normalize_term_in(Term), ECs, (Eqn, NormTerm)).
-
-
-prove_by_ecs(ECs, ~Tgt, ~ Src, 
-  not_intro(not_elim(open(~ Src), Prf, $false), ~ Tgt)) :-
-  !, prove_by_ecs(ECs, Src, Tgt, TempPrf), 
-  close_hyp(Tgt, TempPrf, Prf).
-
-prove_by_ecs(ECs, Tgt, Src, Prf) :- 
-  Tgt =.. [Rel | TgtArgs], 
-  Src =.. [Rel | SrcArgs], 
-  length(TgtArgs, Lth),
+prove_by_ecs(ECs, Lits, not_elim(open(~ AtomB), imp_elim(Prf, open(AtomA), AtomB), $false)) :- 
+  occurs(AtomA, Lits),
+  occurs((~ AtomB), Lits),
+  iff_mod_ecs(ECs, AtomA, AtomB), 
+  AtomA =.. [Rel | TermsA], 
+  AtomB =.. [Rel | TermsB], 
+  length(TermsA, Lth),
   mk_rel_mono(Lth, Rel, Mono), 
-  prove_by_mono(ECs, open(Mono), SrcArgs, TgtArgs, Prf).
+  prove_mono_cons(ECs, open(Mono), TermsA, TermsB, Prf).
 
-prove_by_mono(ECs, MonoPrf, [TrmA | TrmsA], [TrmB | TrmsB], Prf) :-
+prove_mono_cons(ECs, MonoPrf, [TrmA | TrmsA], [TrmB | TrmsB], Prf) :-
   conc(MonoPrf, Mono), % ! [X, Y] : ((X = Y) => Mono)), 
   fa_inst(TrmA, Mono, MonoA),
   fa_inst(TrmB, MonoA, MonoAB),
   MonoAB = (_ => NewMono),
-  equate_by_ecs(ECs, TrmA, TrmB, EqPrf), 
-  prove_by_mono(ECs, 
+  prove_eq_ecs(ECs, TrmA, TrmB, EqPrf), 
+  prove_mono_cons(ECs, 
     imp_elim(fa_elim(TrmB, fa_elim(TrmA, MonoPrf, MonoA), MonoAB), EqPrf, NewMono), 
     TrmsA, TrmsB, Prf). 
 
+prove_mono_cons(_, Prf, [], [], Prf).
 
+% not 
+% imp 
+% fa_elim
 
+conc(open(Conc), Conc).
+conc(closed(Conc), Conc).
+conc(not_elim(_, _, Conc), Conc).
+conc(not_intro(_, Conc), Conc).
+conc(imp_elim(_, _, Conc), Conc).
+conc(imp_intro(_, Conc), Conc).
+conc(fa_elim(_, _, Conc), Conc).
+conc(fa_intro(_, Conc), Conc).
 
+map_hyp(Goal, closed(Form), Prf) :-
+  call(Goal, closed(Form), Prf).
 
+map_hyp(Goal, open(Form), Prf) :-
+  call(Goal, open(Form), Prf).
 
+map_hyp(Goal, not_elim(PrfA, PrfB, Conc), not_elim(NewPrfA, NewPrfB, Conc)) :- 
+  map_hyp(Goal, PrfA, NewPrfA),
+  map_hyp(Goal, PrfB, NewPrfB).
 
+map_hyp(Form, not_intro(Prf, Conc), not_intro(NewPrf, Conc)) :- 
+  map_hyp(Form, Prf, NewPrf).
 
+map_hyp(Form, imp_elim(PrfA, PrfB, Conc), imp_elim(NewPrfA, NewPrfB, Conc)) :- 
+  map_hyp(Form, PrfA, NewPrfA),
+  map_hyp(Form, PrfB, NewPrfB).
 
+map_hyp(Form, imp_intro(Prf, Conc), imp_intro(NewPrf, Conc)) :- 
+  map_hyp(Form, Prf, NewPrf).
 
+map_hyp(Form, fa_elim(Trm, Prf, Conc), fa_elim(Trm, NewPrf, Conc)) :- 
+  map_hyp(Form, Prf, NewPrf).
 
+map_hyp(Form, fa_intro(Prf, Conc), fa_intro(NewPrf, Conc)) :- 
+  map_hyp(Form, Prf, NewPrf).
 
+is_hyp((file(_, _), _)).
 
+id_conc(Id, Conc) :- 
+  fof(Id, _, Conc, _).
 
+init_goal((inference(Rul, _, PremIds), Conc), deduce(NewPrems, NewConc, Rul)) :- 
+  desugar(Conc, NewConc),
+  maplist(id_conc, PremIds, Prems),
+  maplist(desugar, Prems, NewPrems).
 
+propositional(Rul) :-
+  member(Rul, [cnf_transformation]).
 
+equational(Rul) :-
+  member(Rul, [definition_unfolding, trivial_inequality_removal]).
 
+infer_from(_, closed(Form), closed(Form)).
+infer_from((FrmA & FrmB), open(FrmA), and_elim_left(open(FrmA & FrmB), FrmA)).
+infer_from((FrmA & FrmB), open(FrmB), and_elim_right(open(FrmA & FrmB), FrmB)).
 
-/*
+prove_nd(Fs, not_elim(open(~ F), open(F), $false)) :- 
+  occurs(~ F, Fs),
+  occurs(F, Fs).
 
-prove(State) :-
-  get_goal(State, (Bch, [copy(Num) | Insts], copy(Num, Prf))),
-  branch_nth0(State, Num, Frm),
-  set_goal(State, ([Frm | Bch], Insts, Prf), NewState),
-  prove(NewState).
+prove_nd(Forms, Prf) :- 
+  pluck(Forms, (FrmP & FrmQ), Rem), 
+  prove_nd([FrmP, FrmQ | Rem], TempPrf),
+  map_hyp(infer_from(FrmP & FrmQ), TempPrf, Prf).
 
-prove(State) :-
-  get_goal(State, (Twig, [alpha | Insts], alpha(Prf))),
-  get_branch(State, [Frm | _]),
-  break_alpha(Frm, FrmA, FrmB),
-  set_goal(State, ([FrmB, FrmA | Twig], Insts, Prf), NewState),
-  prove(NewState).
+% prove_nd(Forms, Prf) :- 
+%   pluck(Forms, (FrmP | FrmQ), Rem), 
+%   prove_nd([FrmP, FrmQ | Rem], TempPrf),
+%   map_hyp(infer_from(FrmP & FrmQ), TempPrf, Prf).
+% 
+% prove_nd(Forms, Prf) :- 
+%   pluck(Forms, (FrmP => FrmQ), Rem), 
+%   prove_nd([FrmP, FrmQ | Rem], TempPrf),
+%   map_hyp(infer_from(FrmP & FrmQ), TempPrf, Prf).
 
-prove(State) :-
-  get_goal(State, (Twig, [beta | Insts], beta(Prf))), 
-  get_branch(State, [FrmB, FrmA | _]),
-  break_beta(FrmA, FrmB, FrmC),
-  set_goal(State, ([FrmC | Twig], Insts, Prf), NewState),
-  prove(NewState).
+close_if_eq(_, closed(Form), closed(Form)).
+close_if_eq(Form, open(Form), closed(Form)) :- !.
+close_if_eq(_, open(Form), open(Form)).
 
-prove(State) :-
-  get_goal(State, (Twig, [gamma(Trm) | Insts], gamma(Trm, Prf))),
-  get_branch(State, [Frm | _]),
-  break_gamma(Trm, Frm, NewFrm),
-  set_goal(State, ([NewFrm | Twig], Insts, Prf), NewState),
-  prove(NewState).
+close_hyp(Form, Prf, NewPrf) :-
+  map_hyp(close_if_eq(Form), Prf, NewPrf).
 
-prove(State) :- 
-  get_goals(State, [(_, [close | _], close) | Goals]),
-  get_branch(State, [~ Frm, Frm | _]),
-  set_goals(State, Goals, NewState),
-  prove(NewState).
+prove(deduce(Prems, Conc, Rul), raa(Prf, Conc)) :- 
+  propositional(Rul),
+  prove_nd([~ Conc | Prems], TempPrf),
+  close_hyp(~ Conc, TempPrf, Prf).
 
-prove(State) :- 
-  get_goal(State, (Twig, [dne | Insts], dne(Prf))), 
-  get_branch(State, [~ ~ Frm | _]),
-  set_goal(State, ([Frm | Twig], Insts, Prf), NewState), 
-  prove(NewState).
+prove(deduce(Prems, Conc, Rul), Prf) :- 
+  equational(Rul),
+  Lits = [~ Conc | Prems], 
+  lits_sub_terms(Lits, Terms),
+  init_ecs(Terms, InitECs), 
+  collect(mk_eqhyp, Prems, EqHyps),
+  cc(EqHyps, InitECs, ECs),
+  prove_by_ecs(ECs, Lits, FalsePrf),  
+  ( ( Conc = $false, Prf = FalsePrf ) ; 
+    ( close_hyp(~ Conc, FalsePrf, TempPrf), 
+      Prf = raa(TempPrf, Conc) ) ).
 
-prove(State) :- 
-  get_goal(State, (Twig, [tt | Insts], tt(Prf))), 
-  set_goal(State, ([$true | Twig], Insts, Prf), NewState), 
-  prove(NewState).
+prove(deduce(Prems, Conc, Rul), admit(Prems, Conc, Rul)). 
 
-prove(State) :- 
-  get_goal(State, (Twig, [ff | Insts], ff(Prf))), 
-  set_goal(State, ([~ $false | Twig], Insts, Prf), NewState), 
-  prove(NewState).
+prove_debug(Source) :-
+  dynamic(fof/4),
+  retractall(fof(_, _, _, _)),
+  consult(Source),
+  findall((Just, Conc), fof(_, _, Conc, Just), Lines),
+  exclude(is_hyp, Lines, Steps),
+  maplist(init_goal, Steps, Goals),
+  maplist(prove, Goals, Prfs),
+  maplist(check([]), Prfs),
+  write("CHECK SUCCESS!!!").
 
-prove(State) :- 
-  get_goals(State, [(Twig, [cut(Frm) | _], cut(Frm, PrfA, PrfB)) | Goals]),
-  set_goals(State, [([Frm | Twig], [], PrfA), ([~ Frm | Twig], [], PrfB) | Goals], NewState),
-  prove(NewState).
-
-% Retroactively extend the theorem being proven.
-prove(State) :- 
-  get_insts(State, [ext(Frm) | Insts]),
-  get_symbs(State, Symbs),
-  not(uses_any(Symbs, Frm)),
-  get_ext(State, [Frm | NewExt]),
-  set_insts(State, Insts, TempState),
-  set_ext(TempState, NewExt, NewState),
-  prove(NewState).
-
-
-prove(State) :-
-  get_insts(State, [copy_form(Frm) | Insts]),
-  branch_where(State, Frm, Num), 
-  ( Num = 0 ->
-    set_insts_auto(State, Insts, NewState) ;
-    set_insts_auto(State, [copy(Num) | Insts], NewState)
-  ),
-  prove(NewState).
-
-prove(State) :- 
-  get_insts(State, []),
-  branch_member(State, Frm),
-  branch_has(State, ~ Frm),
-  set_insts_auto(State, [copy_form(Frm), copy_form(~ Frm), close], NewState),
-  prove(NewState).
-
-
-
-% If there are more than one lemmas to be proven, cut to 
-% spawn a subgoal and continue with the main line of the proof.
-prove(State) :-
-  get_goals(State, [(Twig, [lemma(Prems, Conc, Rul) | Insts], cut(Conc, PrfA, PrfB)) | Goals]),
-  Insts = [_ | _],
-  auto_verify(State, Auto),
-  set( 
-    State, 
-    [ 
-      ([Conc | Twig], Insts, PrfA), 
-      ([~ Conc | Twig], [lemma(Prems, Conc, Rul)], PrfB) | 
-      Goals
-    ], 
-    same, 
-    same, 
-    Auto, 
-    same, 
-    NewState
-  ),
-  prove(NewState).
-
-% If conclusion of lemma is a reflexive equality, prove it immediately.
-prove(State) :- 
-  get_insts(State, [lemma(_, (Trm = Trm), _)]),
-  posit_insts(State, (! [X] : (X = X)), TempInsts),
-  append(TempInsts, [gamma(Trm)], NewInsts),
-  set_insts_auto(State, NewInsts, NewState),
-  prove(NewState).
-
-% Apply symmetry to reverse an existing equation.
-prove(State) :- 
-  get_insts(State, [lemma(_, (TrmA = TrmB), _)]),
-  branch_has(State, (TrmB = TrmA)),
-  posit_insts(State, (! [X, Y] : ((X = Y) => (Y = X))), TempInsts),
-  append(
-    TempInsts, 
-    [
-      gamma(TrmB), 
-      gamma(TrmA), 
-      copy_form(TrmB = TrmA),
-      beta
-    ],
-    NewInsts
-  ),
-  set_insts_auto(State, NewInsts, NewState),
-  prove(NewState).
-
-% Apply symmetry to reverse an existing inequation.
-prove(State) :- 
-  get_insts(State, [lemma(_, ~ (TrmA = TrmB), _)]),
-  branch_has(State, ~ (TrmB = TrmA)),
-  posit_insts(State, (! [X, Y] : ((X = Y) => (Y = X))), TempInsts),
-  append(
-    TempInsts,
-    [
-      gamma(TrmA), 
-      gamma(TrmB), 
-      copy_form(~ (TrmB = TrmA)),
-      beta
-    ], 
-    NewInsts
-  ),
-  set_insts_auto(State, NewInsts, NewState),
-  prove(NewState).
-
-% If the directive uses a premise that does not exist on the branch,
-% that premise must be obtainable from an existing hypothesis via an 
-% simple, implicit processing step.
-prove(State) :- 
-  get_insts(State, [lemma(Prems, Conc, Rul)]), 
-  member(Prem, Prems), 
-  not(branch_has(State, Prem)), 
-  set_insts_auto(State, [lemma([], Prem, implicit), lemma(Prems, Conc, Rul)], NewState),
-  prove(NewState).
-
-% If an hypothesis of lemma is a negated reflexive equality, close immediately.
-prove(State) :-
-  get_insts(State, [lemma([~ (Trm = Trm) | _], _, _)]), 
-  posit_insts(State, (! [X] : (X = X)), TempInsts),
-  append(
-    TempInsts, 
-    [
-      gamma(Trm), 
-      copy_form(~ (Trm = Trm)), 
-      close
-    ], 
-    NewInsts
-  ),
-  set_insts_auto(State, NewInsts, NewState),
-  prove(NewState).
-
-
-prove(State) :- 
-  get_insts(State, [lemma(_, (TrmA = TrmB), congr)]), 
-  TrmA =.. [Fun | ArgA], 
-  TrmB =.. [Fun | ArgB], 
-  maplist(mk_pair, ArgA, ArgB, Pairs),
-  length(Pairs, Lth),
-  mk_fun_mono(Lth, Fun, Mono), 
-  posit_insts(State, Mono, TempInsts),
-  append(TempInsts, [mono(Pairs)], NewInsts), 
-  set_insts_auto(State, NewInsts, NewState),
-  prove(NewState).
-
-prove(State) :- 
-  get_insts(State, [mono([(TrmA, TrmB) | Pairs]) | Insts]),
-  set_insts_auto(
-    State,
-    [ 
-      gamma(TrmA), 
-      gamma(TrmB), 
-      lemma([], (TrmA = TrmB), congr),
-      beta,
-      mono(Pairs) |
-      Insts
-    ],
-    NewState
-  ),
-  prove(NewState).
-
-prove(State) :- 
-  get_insts(State, [mono([]) | Insts]),
-  set_insts_auto(State, Insts, NewState),
-  prove(NewState).
-
-% If all goals are closed, finish.
-prove(State) :- 
-  get_goals(State, []),
-  get_ext(State, []), 
-  write("\n\nQED.\n\n").
-
-  
-
-id_theorem_string((Id, Thm), Str) :- 
-  atom_string(Id, IdStr), 
-  theorem_string(Thm, ThmStr),
-  strings_concat([IdStr, " : ", ThmStr], Str).
- 
-%loop(write(Filename)) :- 
-%  findall(theorem(Id, Smt, Prf), theorem(Id, Smt, Prf), Thms),
-%  open(Filename, write, Stream),
-%  maplist(write_punct(Stream), Thms),
-%  close(Stream),
-%  loop.
-
-
-
-read_input(Inp) :-
-  read_term(user_input, Inp, [syntax_errors(fail)]).
-
-
-*/
+verify(Source) :-
+  retractall(theorem(_, _)),
+  consult(Source),
+  theorem(Smt, Prf),
+  verify(Smt, Prf),
+  write("Proof verified : "),
+  maplist(form_string, Smt, Strs),
+  strings_concat_with(", ", Strs, Str),
+  write(Str).

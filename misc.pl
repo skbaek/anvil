@@ -65,11 +65,16 @@ write_file(Target, Term) :-
   write(Stream, Term),
   close(Stream).
 
-pluck(Goal, [Elem | Rem], Elem, Rem) :- 
+pick(Goal, [Elem | Rem], Elem, Rem) :- 
   call(Goal, Elem), !.
 
-pluck(Goal, [ElemA | List], ElemB, [ElemA | Rem]) :- 
-  pluck(Goal, List, ElemB, Rem).
+pick(Goal, [ElemA | List], ElemB, [ElemA | Rem]) :- 
+  pick(Goal, List, ElemB, Rem).
+
+pluck([Elem | Rem], Elem, Rem).
+
+pluck([ElemA | List], ElemB, [ElemA | Rem]) :- 
+  pluck(List, ElemB, Rem).
 
 list_prod([ElemA | ListA], [ElemB | ListB], List, [(ElemA, ElemB) | Prod]) :-
   list_prod([ElemA | ListA], ListB, List, Prod).
@@ -95,6 +100,12 @@ collect(Goal, [Elem | List], Results) :-
   ( collect(Goal, List, TempResults),
     Results = [Result | TempResults] ) ; 
   collect(Goal, List, Results).
+
+any(Goal, [Elem | _]) :-
+  call(Goal, Elem).
+
+any(Goal, [_ | List]) :-
+  any(Goal, List).
 
 
 
