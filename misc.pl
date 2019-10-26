@@ -23,23 +23,85 @@ strings_concat_with(_, [], "").
 
 strings_concat_with(_, [Str], Str).
 
-strings_concat_with(Div, [Str | Strs], Rst) :-
+strings_concat_with(Div, [Str | Strs], Result) :-
   strings_concat_with(Div, Strs, TempStr),
-  strings_concat([Str, Div, TempStr], Rst).
+  strings_concat([Str, Div, TempStr], Result).
 
-variant_nth0(0, [ElemA | _], ElemB) :- 
-  ElemA =@= ElemB.
+% Similar to nth0/3, but avoids instantiating list elements.
+where(ElemA, [ElemB | _], 0) :- 
+  subsumes(ElemA, ElemB).
 
-variant_nth0(Num, [_ | List], Elem) :- 
-  variant_nth0(PredNum, List, Elem),
+where(Elem, [_ | List], Num) :- 
+  where(Elem, List, PredNum), 
   Num is PredNum + 1.
 
-variant_member(ElemA, [ElemB | _]) :- 
-  ElemA =@= ElemB.
+% Similar to member/2, but avoids instantiating list elements.
+occurs(ElemA, [ElemB | _]) :- 
+  subsumes(ElemA, ElemB).
 
-variant_member(Elem, [_ | List]) :-
-  variant_member(Elem, List).
+occurs(Elem, [_ | List]) :-
+  occurs(Elem, List).
 
+indexed_maplist(_, _, []).
+
+indexed_maplist(Goal, Num, [Elem | List]) :-
+  call(Goal, Num, Elem),
+  SuccNum is Num + 1,
+  indexed_maplist(Goal, SuccNum, List).
+
+indexed_maplist(_, _, [], []).
+
+indexed_maplist(Goal, Num, [ElemA | ListA], [ElemB | ListB]) :-
+  call(Goal, Num, ElemA, ElemB),
+  SuccNum is Num + 1,
+  indexed_maplist(Goal, SuccNum, ListA, ListB).
+
+htn0(Num, List, Elem) :- 
+  reverse(List, Tsil),
+  nth0(Num, Tsil, Elem).
+
+write_file(Target, Term) :-
+  open(Target, write, Stream),
+  write(Stream, Term),
+  close(Stream).
+
+pluck(Goal, [Elem | Rem], Elem, Rem) :- 
+  call(Goal, Elem), !.
+
+pluck(Goal, [ElemA | List], ElemB, [ElemA | Rem]) :- 
+  pluck(Goal, List, ElemB, Rem).
+
+list_prod([ElemA | ListA], [ElemB | ListB], List, [(ElemA, ElemB) | Prod]) :-
+  list_prod([ElemA | ListA], ListB, List, Prod).
+
+list_prod([_ | ListA], [], List, Prod) :- 
+  list_prod(ListA, List, List, Prod).
+
+list_prod([], _, _, []).
+
+list_prod(ListA, ListB, Prod) :-
+  list_prod(ListA, ListB, ListB, Prod).
+
+first(Goal, [Elem | _], Result) :-
+  call(Goal, Elem, Result), !.
+
+first(Goal, [_ | List], Result) :-
+  first(Goal, List, Result).
+
+collect(_, [], []).
+
+collect(Goal, [Elem | List], Results) :-
+  call(Goal, Elem, Result) -> 
+  ( collect(Goal, List, TempResults),
+    Results = [Result | TempResults] ) ; 
+  collect(Goal, List, Results).
+
+
+
+
+% write_punct(Stm, X) :-
+%   write(Stm, X),
+%   write(Stm, ".\n\n").
 % groundfix(Var, []) :- var(Var), !.
 % 
 % groundfix([Elem | List], [Elem | Gfx]) :- 
