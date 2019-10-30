@@ -1,1 +1,0 @@
-theorem([~ (f(a)=f(c)),a=b,b=c,(a=b=>b=c=>a=c),(~ (f(a)=f(c))=>a=c=> ~ (f(c)=f(c))),![_6138]:(_6138=_6138)],cut(~ (f(c)=f(c)),copy(6,gamma(f(c),copy(2,close))),cut(~ (f(a)=f(c)),cut(a=c,copy(7,copy(2,beta(copy(3,beta(copy(7,close)))))),cut(a=b,cut(b=c,copy(8,copy(2,beta(copy(3,beta(copy(7,close)))))),copy(7,copy(1,close))),copy(5,copy(1,close)))),copy(2,copy(1,close))))).

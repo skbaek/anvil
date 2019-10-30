@@ -1,0 +1,57 @@
+lemma(gamma(aunt_agatha,!0:!1:(~killed(#(1),#(0))|hates(#(1),#(0))),gamma(someone,!1:(~killed(#(1),aunt_agatha)|hates(#(1),aunt_agatha)),beta((~killed(someone,aunt_agatha)|hates(someone,aunt_agatha)),close,close))),hates(someone,aunt_agatha))
+
+lemma(gamma(&(0),!0:(richer(#(0),aunt_agatha)|hates(butler,#(0))),beta((richer(&(0),aunt_agatha)|hates(butler,&(0))),gamma(aunt_agatha,!0:!1:(~richer(#(1),#(0))|~killed(#(1),#(0))),gamma(&(0),!1:(~richer(#(1),aunt_agatha)|~killed(#(1),aunt_agatha)),beta((~richer(&(0),aunt_agatha)|~killed(&(0),aunt_agatha)),close,delta(0,~!0:(~killed(#(0),aunt_agatha)|hates(butler,#(0))),alpha(~ (~killed(&(0),aunt_agatha)|hates(butler,&(0))),dne(killed(&(0),aunt_agatha),close)))))),delta(0,~!0:(~killed(#(0),aunt_agatha)|hates(butler,#(0))),alpha(~ (~killed(&(0),aunt_agatha)|hates(butler,&(0))),close)))),!0:(~killed(#(0),aunt_agatha)|hates(butler,#(0))))
+
+lemma(gamma(&(0),!0:(hates(aunt_agatha,#(0))|butler= #(0)),beta((hates(aunt_agatha,&(0))|butler= &(0)),gamma(&(0),!0:(~hates(aunt_agatha,#(0))|hates(butler,#(0))),beta((~hates(aunt_agatha,&(0))|hates(butler,&(0))),close,delta(0,~!0:(hates(butler,#(0))|butler= #(0)),alpha(~ (hates(butler,&(0))|butler= &(0)),close)))),delta(0,~!0:(hates(butler,#(0))|butler= #(0)),alpha(~ (hates(butler,&(0))|butler= &(0)),close)))),!0:(hates(butler,#(0))|butler= #(0)))
+
+lemma(gamma(someone,!0:(~lives_at_dreadsbury(#(0))|butler= #(0)|aunt_agatha= #(0)|charles= #(0)),beta((~lives_at_dreadsbury(someone)|butler=someone|aunt_agatha=someone|charles=someone),close,beta((butler=someone|aunt_agatha=someone|charles=someone),gamma(butler,!0:!1:(#(0)= #(1)=> #(1)= #(0)),gamma(someone,!1:(butler= #(1)=> #(1)=butler),beta((butler=someone=>someone=butler),close,alpha(~ (someone=butler|someone=aunt_agatha|someone=charles),close)))),beta((aunt_agatha=someone|charles=someone),gamma(aunt_agatha,!0:!1:(#(0)= #(1)=> #(1)= #(0)),gamma(someone,!1:(aunt_agatha= #(1)=> #(1)=aunt_agatha),beta((aunt_agatha=someone=>someone=aunt_agatha),close,alpha(~ (someone=butler|someone=aunt_agatha|someone=charles),alpha(~ (someone=aunt_agatha|someone=charles),close))))),gamma(charles,!0:!1:(#(0)= #(1)=> #(1)= #(0)),gamma(someone,!1:(charles= #(1)=> #(1)=charles),beta((charles=someone=>someone=charles),close,alpha(~ (someone=butler|someone=aunt_agatha|someone=charles),alpha(~ (someone=aunt_agatha|someone=charles),close))))))))),(someone=butler|someone=aunt_agatha|someone=charles))
+
+admit([],(spl0_0<=>someone=charles),avatar_definition)
+
+admit([(spl0_0<=>someone=charles)],(someone=charles|~spl0_0),avatar_component_clause)
+
+admit([],(spl0_2<=>someone=aunt_agatha),avatar_definition)
+
+admit([(spl0_2<=>someone=aunt_agatha)],(someone=aunt_agatha|~spl0_2),avatar_component_clause)
+
+admit([],(spl0_4<=>someone=butler),avatar_definition)
+
+admit([(spl0_4<=>someone=butler)],(someone=butler|~spl0_4),avatar_component_clause)
+
+admit([(someone=butler|someone=aunt_agatha|someone=charles),(spl0_4<=>someone=butler),(spl0_2<=>someone=aunt_agatha),(spl0_0<=>someone=charles)],(spl0_0|spl0_2|spl0_4),avatar_split_clause)
+
+admit([(someone=aunt_agatha|~spl0_2),killed(someone,aunt_agatha)],(killed(someone,someone)|~spl0_2),backward_demodulation)
+
+admit([(someone=aunt_agatha|~spl0_2),~killed(aunt_agatha,aunt_agatha)],(~killed(someone,someone)|~spl0_2),backward_demodulation)
+
+lemma(alpha(~ ($false|~spl0_2),dne(spl0_2,beta((~killed(someone,someone)|~spl0_2),beta((killed(someone,someone)|~spl0_2),close,close),close))),($false|~spl0_2))
+
+lemma(dne(spl0_2,beta(($false|~spl0_2),close,close)),~spl0_2)
+
+admit([(someone=butler|~spl0_4),!0:(~killed(#(0),aunt_agatha)|hates(butler,#(0)))],(!0:(~killed(#(0),aunt_agatha)|hates(someone,#(0)))|~spl0_4),backward_demodulation)
+
+admit([(someone=butler|~spl0_4),!0:(hates(butler,#(0))|butler= #(0))],(!0:(someone= #(0)|hates(butler,#(0)))|~spl0_4),backward_demodulation)
+
+admit([(!0:(someone= #(0)|hates(butler,#(0)))|~spl0_4),(someone=butler|~spl0_4)],(!0:(hates(someone,#(0))|someone= #(0))|~spl0_4),forward_demodulation)
+
+lemma(alpha(~ (hates(someone,someone)|~spl0_4),dne(spl0_4,beta((!0:(~killed(#(0),aunt_agatha)|hates(someone,#(0)))|~spl0_4),gamma(someone,!0:(~killed(#(0),aunt_agatha)|hates(someone,#(0))),beta((~killed(someone,aunt_agatha)|hates(someone,someone)),close,close)),close))),(hates(someone,someone)|~spl0_4))
+
+lemma(alpha(~ (someone=every_one_but(someone)|~spl0_4),dne(spl0_4,beta((!0:(hates(someone,#(0))|someone= #(0))|~spl0_4),gamma(every_one_but(someone),!0:(hates(someone,#(0))|someone= #(0)),beta((hates(someone,every_one_but(someone))|someone=every_one_but(someone)),gamma(someone,!0: ~hates(#(0),every_one_but(#(0))),close),close)),close))),(someone=every_one_but(someone)|~spl0_4))
+
+admit([!0: ~hates(#(0),every_one_but(#(0))),(someone=every_one_but(someone)|~spl0_4)],(~hates(someone,someone)|~spl0_4),superposition)
+
+lemma(alpha(~ ($false|~spl0_4),dne(spl0_4,beta((~hates(someone,someone)|~spl0_4),beta((hates(someone,someone)|~spl0_4),close,close),close))),($false|~spl0_4))
+
+lemma(dne(spl0_4,beta(($false|~spl0_4),close,close)),~spl0_4)
+
+admit([(someone=charles|~spl0_0),!0:(~hates(charles,#(0))|~hates(aunt_agatha,#(0)))],(!0:(~hates(aunt_agatha,#(0))|~hates(someone,#(0)))|~spl0_0),backward_demodulation)
+
+lemma(gamma(&(0),!0:(hates(aunt_agatha,#(0))|butler= #(0)),beta((hates(aunt_agatha,&(0))|butler= &(0)),beta((!0:(~hates(aunt_agatha,#(0))|~hates(someone,#(0)))|~spl0_0),gamma(&(0),!0:(~hates(aunt_agatha,#(0))|~hates(someone,#(0))),beta((~hates(aunt_agatha,&(0))|~hates(someone,&(0))),close,alpha(~ (!0:(~hates(someone,#(0))|butler= #(0))|~spl0_0),delta(0,~!0:(~hates(someone,#(0))|butler= #(0)),alpha(~ (~hates(someone,&(0))|butler= &(0)),dne(hates(someone,&(0)),close)))))),alpha(~ (!0:(~hates(someone,#(0))|butler= #(0))|~spl0_0),dne(spl0_0,close))),alpha(~ (!0:(~hates(someone,#(0))|butler= #(0))|~spl0_0),delta(0,~!0:(~hates(someone,#(0))|butler= #(0)),alpha(~ (~hates(someone,&(0))|butler= &(0)),close))))),(!0:(~hates(someone,#(0))|butler= #(0))|~spl0_0))
+
+lemma(alpha(~ (aunt_agatha=butler|~spl0_0),dne(spl0_0,beta((!0:(~hates(someone,#(0))|butler= #(0))|~spl0_0),gamma(aunt_agatha,!0:(~hates(someone,#(0))|butler= #(0)),beta((~hates(someone,aunt_agatha)|butler=aunt_agatha),close,gamma(butler,!0:!1:(#(0)= #(1)=> #(1)= #(0)),gamma(aunt_agatha,!1:(butler= #(1)=> #(1)=butler),beta((butler=aunt_agatha=>aunt_agatha=butler),close,close))))),close))),(aunt_agatha=butler|~spl0_0))
+
+lemma(alpha(~ ($false|~spl0_0),dne(spl0_0,beta((aunt_agatha=butler|~spl0_0),close,close))),($false|~spl0_0))
+
+lemma(dne(spl0_0,beta(($false|~spl0_0),close,close)),~spl0_0)
+
+lemma(beta((spl0_0|spl0_2|spl0_4),close,beta((spl0_2|spl0_4),close,close)),$false)

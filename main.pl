@@ -1,7 +1,3 @@
-#!/usr/bin/env swipl
-
-:- initialization(main, main).
-
 :- [misc].
 
 :- op(1130, xfy, <=>). % equivalence
@@ -51,8 +47,6 @@ index_form_string(Num, Frm, Str) :-
   strings_concat(["[", NumStr, "] ", FrmStr, "\n"], Str).
 
 
-
-
 /* Proof state display */
 
 % theorem_string(Frms, Str) :- 
@@ -66,72 +60,7 @@ index_form_string(Num, Frm, Str) :-
 %   reverse(["\n-------\n\n" |Strs], RevStrs),
 %   strings_concat(RevStrs, Str).
 
-insts_string([], _, "No insts\n\n").
-
-insts_string(Insts, on, Str) :-
-  maplist(inst_string, Insts, Strs), 
-  strings_concat(Strs, TempStr),
-  string_concat(TempStr, "\n", Str).
-  
-insts_string([Inst | Insts], off, Str) :-
-  inst_string(Inst, InstStr), 
-  length(Insts, Lth),
-  number_string(Lth, LthStr),
-  strings_concat([InstStr, "\n(", LthStr, " more insts)\n\n"], Str).
-
-inst_string(defin(Conc, Rul), Str) :- 
-  term_string(Conc, ConcStr),
-  term_string(Rul, RulStr),
-  strings_concat(["?Γ |= ", ConcStr, " [", RulStr, "]\n"], Str).
-
-inst_string(lemma(Prems, Conc, Rul), Str) :- 
-  maplist(term_string, Prems, PremStrs),
-  strings_concat_with(", ", PremStrs, PremsStr),
-  term_string(Conc, ConcStr),
-  term_string(Rul, RulStr),
-  strings_concat([PremsStr, " |- ", ConcStr, " [", RulStr, "]\n"], Str).
-
-inst_string(Inst, Str) :- 
-  term_string(Inst, InstStr),
-  string_concat(InstStr, "\n", Str).
-
-check(_, open(_)).
-
-check(Hyps, closed(Form)) :- 
-  member(Form, Hyps).
-
-check(Hyps, fa_elim(Term, Prf, Form)) :- 
-  conc(Prf, FaForm), 
-  fa_inst(Term, FaForm, FormTerm), 
-  Form =@= FormTerm, 
-  check(Hyps, Prf).
-
-check(Hyps, imp_elim(PrfA, PrfB, FormB)) :- 
-  conc(PrfA, FormA => FormB), 
-  conc(PrfB, FormA), 
-  check(Hyps, PrfA),
-  check(Hyps, PrfB).
-
-check(Hyps, not_elim(PrfA, PrfB, $false)) :- 
-  conc(PrfA, ~ Form), 
-  conc(PrfB, Form), 
-  check(Hyps, PrfA),
-  check(Hyps, PrfB).
-
-check(Hyps, and_elim_left(Prf, Conc)) :- 
-  conc(Prf, Conc & _), 
-  check(Hyps, Prf).
-
-check(Hyps, and_elim_right(Prf, Conc)) :- 
-  conc(Prf, _ & Conc), 
-  check(Hyps, Prf).
-
-check(Hyps, raa(Prf, Conc)) :- 
-  conc(Prf, $false), 
-  check([~ Conc | Hyps], Prf).
-
-
-
+% shell("vampire --proof tptp goal | tr '!=' '\\\\=' > insts"),
 
 % branches_string(Bchs, on, Str) :- 
 %   reverse(Bchs, RevBchs),
@@ -143,54 +72,55 @@ check(Hyps, raa(Prf, Conc)) :-
 %   number_string(Lth, LthStr),
 %   branch_string(Bch, BchStr),
 %   strings_concat(["(", LthStr, " more goals)\n\n", BchStr], Str).
-
-decode_disp(all, on, on).
-decode_disp(goals, on, off).
-decode_disp(insts, off, on).
-decode_disp(none, off, off).
-
-% write_state(State) :-
-%   get_disp(State, Disp),
-%   decode_disp(Disp, ShowBchs, ShowInsts),
-%   get_branches(State, Bchs),
-%   branches_string(Bchs, ShowBchs, BchsStr),
-%   get_insts(State, Insts),
-%   insts_string(Insts, ShowInsts, InstsStr),
-%   shell("clear"),
-%   write(BchsStr), 
-%   write(InstsStr).
-% 
-% write_state(_, _, _) :-
-%   write("Ill-formed state.").
   
 /* Formula decomposition */
 
 break_alpha(FrmA & FrmB, FrmA, FrmB).
 break_alpha(~ (FrmA | FrmB), ~ FrmA, ~ FrmB).
 break_alpha(~ (FrmA => FrmB), FrmA, ~ FrmB).
+alpha(Form) :- break_alpha(Form, _, _).
 
-break_beta(~ (FrmA & FrmB), FrmA, ~ FrmB).
-break_beta(~ (FrmA & FrmB), FrmB, ~ FrmA).
-break_beta(FrmA | FrmB, ~ FrmA, FrmB).
-break_beta(FrmA | FrmB, ~ FrmB, FrmA).
-break_beta(FrmA => FrmB, FrmA, FrmB).
-break_beta(FrmA => FrmB, ~ FrmB, ~ FrmA).
+break_beta(~ (FrmA & FrmB), ~ FrmA, ~ FrmB).
+break_beta(FrmA | FrmB, FrmA, FrmB).
+break_beta(FrmA => FrmB, ~ FrmA, FrmB).
 
-fa_inst(Trm, (! [X] : Form), NewForm) :- !, 
-  copy_term((! [X] : Form), (! [Y] : NewForm)), 
-  Y = Trm.
+beta(Form) :- break_beta(Form, _, _).
 
-fa_inst(Trm, (! [X | Xs] : Frm), (! Ys : NewFrm)) :- !, 
-  copy_term((! [X | Xs] : Frm), (! [Y | Ys] : NewFrm)), 
-  Y = Trm.
+break_gamma(Term, ! Num : Form, NewForm) :- !, 
+  substitute(Num, Term, Form, NewForm).
 
-break_gamma(Trm, ~ (? [X] : Frm), ~ NewFrm) :- !, 
-  copy_term((? [X] : Frm), (? [Y] : NewFrm)), 
-  Y = Trm.
+break_gamma(Term, ~ (? Num : Form), ~ NewForm) :- 
+  substitute(Num, Term, Form, NewForm).
 
-break_gamma(Trm, ~ (? [X | Xs] : Frm), ~ (? Ys : NewFrm)) :- !, 
-  copy_term((? [X | Xs] : Frm), (? [Y | Ys] : NewFrm)), 
-  Y = Trm.
+gamma(! _ : _).
+gamma(~ (? _ : _)).
+
+break_delta(Par, (? Var : Form), NewForm) :- !, 
+  substitute(Var, &(Par), Form, NewForm).
+
+break_delta(Par, ~ (! Var : Form), ~ NewForm) :- 
+  substitute(Var, &(Par), Form, NewForm).
+
+delta(? _ : _).
+delta(~ (! _ : _)).
+
+substitute(_, _, Var, Var) :- 
+  var(Var). 
+
+substitute(NumA, Term, Exp, NewTerm) :- 
+  not(var(Exp)), 
+  Exp = #(NumB),
+  ( NumA = NumB -> 
+    NewTerm = Term;
+    NewTerm = #(NumB) ).
+
+substitute(Num, Term, Exp, NewExp) :- 
+  not(var(Exp)), 
+  not(Exp = #(_)), 
+  not(Exp = &(_)), 
+  Exp =.. [Symb | Terms],  
+  maplist(substitute(Num, Term), Terms, NewTerms),
+  NewExp =.. [Symb | NewTerms].
 
 verify([~ ~ Frm | Bch], dne(Prf)) :-
   verify([Frm, ~ ~ Frm | Bch], Prf).
@@ -203,8 +133,8 @@ verify([FrmB, FrmA | Bch], beta(Prf)) :-
   break_beta(FrmA, FrmB, FrmC),
   verify([FrmC, FrmB, FrmA | Bch], Prf).
 
-verify([FrmA | Bch], gamma(Trm, Prf)) :-
-  break_gamma(Trm, FrmA, FrmB),
+verify([FrmA | Bch], gamma(Term, Prf)) :-
+  break_gamma(Term, FrmA, FrmB),
   verify([FrmB, FrmA | Bch], Prf).
 
 verify([~ Frm, Frm | _], close).
@@ -223,11 +153,11 @@ verify(Bch, tt(Prf)) :-
 verify(Bch, ff(Prf)) :-
   verify([~ $false | Bch], Prf).
 
-mk_fun_mono(0, VarsA, [], VarsB, [], Fun, (TrmA = TrmB)) :- !,
-  TrmA =.. [Fun | VarsA],
-  TrmB =.. [Fun | VarsB].
+mk_fun_mono(0, VarsA, [], VarsB, [], Fun, (TermA = TermB)) :- 
+  TermA =.. [Fun | VarsA],
+  TermB =.. [Fun | VarsB].
 
-mk_fun_mono(Num, VarsA, [X | ExtA], VarsB, [Y | ExtB], Fun, ! [X, Y] : ((X = Y) => Frm)) :- !,
+mk_fun_mono(Num, VarsA, [X | ExtA], VarsB, [Y | ExtB], Fun, ! [X, Y] : ((X = Y) => Frm)) :- 
   PredNum is Num - 1, 
   mk_fun_mono(PredNum, VarsA, ExtA, VarsB, ExtB, Fun, Frm).
 
@@ -304,41 +234,70 @@ uses(Symb, Exp) :-
   Exp =.. [Symb | _].
 
 uses(Symb, Exp) :- 
-  Exp =.. [_ | Trms],
-  uses(Symb, Trms).
+  Exp =.. [_ | Terms],
+  uses(Symb, Terms).
 
 uses_any([Symb | Symbs], Frm) :- 
   uses(Symb, Frm);
   uses_any(Symbs, Frm).
 
-desugar(~ Frm, ~ NewFrm) :- !, 
-  desugar(Frm, NewFrm).
+translate(Num, ~ TPTP, ~ Form) :- !, 
+ translate(Num, TPTP, Form).
 
-desugar(FrmA & FrmB, NewFrmA & NewFrmB) :- !,
-  desugar(FrmA, NewFrmA),
-  desugar(FrmB, NewFrmB).
-  
-desugar(FrmA | FrmB, NewFrmA | NewFrmB) :- !,
-  desugar(FrmA, NewFrmA),
-  desugar(FrmB, NewFrmB).
+translate(Num, (! [#(Num)] : TPTP), (! Num : Form))  :- !, 
+  Succ is Num + 1,
+  translate(Succ, TPTP, Form).
 
-desugar(FrmA => FrmB, NewFrmA => NewFrmB) :- !,
-  desugar(FrmA, NewFrmA),
-  desugar(FrmB, NewFrmB).
+translate(Num, (! [#(Num) | Vars] : TPTP), (! Num : Form))  :- !, 
+  Succ is Num + 1,
+  translate(Succ, ! Vars : TPTP, Form).
 
-desugar(FrmA <=> FrmB, NewFrmA <=> NewFrmB) :- !,
-  desugar(FrmA, NewFrmA),
-  desugar(FrmB, NewFrmB).
+translate(Num, (? [#(Num)] : TPTP), (? Num : Form))  :- !, 
+  Succ is Num + 1,
+  translate(Succ, TPTP, Form).
 
-desugar((! Vars : Frm), (! Vars : NewFrm))  :- !, 
-  desugar(Frm, NewFrm).
+translate(Num, (? [#(Num) | Vars] : TPTP), (? Num : Form))  :- !, 
+  Succ is Num + 1,
+  translate(Succ, ? Vars : TPTP, Form).
 
-desugar((? Vars : Frm), (? Vars : NewFrm))  :- !, 
-  desugar(Frm, NewFrm).
+translate(_, (TPTP_A \= TPTP_B), ~ (TermA = TermB)) :- !,
+  translate(TPTP_A, TermA),
+  translate(TPTP_B, TermB).
 
-desugar((TrmA \= TrmB), ~ (TrmA = TrmB)) :- !.
+translate(Num, TPTP, Form) :- 
+  TPTP =.. [Conn, TPTP_A, TPTP_B],
+  member(Conn, [&, '|', =>, <=>]), !,
+  translate(Num, TPTP_A, FormA),
+  translate(Num, TPTP_B, FormB),
+  Form =.. [Conn, FormA, FormB].
 
-desugar(Atm, Atm).
+translate(_, TPTP, Form) :- !,
+  TPTP =.. [Rel | TPTPs], 
+  maplist(translate, TPTPs, Terms),
+  Form =.. [Rel | Terms].
+
+translate(TPTP, Term) :- !,
+  TPTP =.. [Fun | TPTPs], 
+  maplist(translate, TPTPs, Terms),
+  Term =.. [Fun | Terms].
+
+% translate(Num, FrmA & FrmB, NewFrmA & NewFrmB) :- !,
+%  translate(Num, FrmA, NewFrmA),
+%  translate(Num, FrmB, NewFrmB).
+%   
+% translate(Num, FrmA | FrmB, NewFrmA | NewFrmB) :- !,
+%  translate(Num, FrmA, NewFrmA),
+%  translate(Num, FrmB, NewFrmB).
+% 
+% translate(FrmA => FrmB, NewFrmA => NewFrmB) :- !,
+%  translate(FrmA, NewFrmA),
+%  translate(FrmB, NewFrmB).
+% 
+% translate(FrmA <=> FrmB, NewFrmA <=> NewFrmB) :- !,
+%  translate(FrmA, NewFrmA),
+%  translate(FrmB, NewFrmB).
+
+
 
 % ids_get_insts([], []).
 % 
@@ -350,21 +309,21 @@ desugar(Atm, Atm).
 
 % id_form(Id, Form) :-
 %   fof(Id, _, Conc, _),
-%   desugar(Conc, Form).
+%  translate(Conc, Form).
 % 
 % id_tree(Id, hyp(Form)) :-
 %   fof(Id, _, Conc, file(_, _)),
-%   desugar(Conc, Form).
+%  translate(Conc, Form).
 % 
 % id_tree(Id, def(Form, Rul)) :-
 %   fof(Id, _, Conc, introduced(Rul, _)), !,
-%   desugar(Conc, Form).
+%  translate(Conc, Form).
 % 
 % id_tree(Id, inf(Trees, Forms, Form, Rul)) :-  
 %   fof(Id, _, Conc, inference(Rul, _, Ids)), !,
 %   maplist(id_tree, Ids, Trees),
 %   maplist(id_form, Ids, Forms),
-%   desugar(Conc, Form).
+%  translate(Conc, Form).
 
 prove_args(['-p', Source, Target | _], Source, Target).
 prove_args([_ | Argv], Source, Target) :-
@@ -445,87 +404,82 @@ member_tree(Elem, bridge(_, _, EC)) :-
 member_ec(Elem, (Tree, _)) :-
   member_tree(Elem, Tree).
 
-lhs(EqPrf, LHS) :-
-  conc(EqPrf, (LHS = _)).
-
-rhs(EqPrf, RHS) :-
-  conc(EqPrf, (_ = RHS)).
-
-% Propagate the effects of equating TrmA and TrmB
-propagate(Eqn, ECs, NewECs) :- 
-  lhs(Eqn, LHS),
-  rhs(Eqn, RHS),
-  pick(member_ec(LHS), ECs, ECL, ECs1),
-  pick(member_ec(RHS), ECs1, ECR, ECs2),
+% Propagate the effects of equating TermA and TermB
+propagate((TermA, Prf, TermB), ECs, NewECs) :- 
+  pick(member_ec(TermA), ECs, ECL, ECs1),
+  pick(member_ec(TermB), ECs1, ECR, ECs2),
   ECL = (TreeL, SupsL),
   ECR = (TreeR, SupsR),
   union(SupsL, SupsR, Sups),
   list_prod(SupsL, SupsR, SupPairs), 
-  ECs3 = [(bridge(TreeL, Eqn, TreeR), Sups) | ECs2], 
-  collect(prove_eq_ecs(ECs3), SupPairs, NewEqns), 
-  foldl(propagate, NewEqns, ECs3, NewECs).
+  ECs3 = [(bridge(TreeL, (TermA, Prf, TermB), TreeR), Sups) | ECs2], 
+  collect(mono_ecs_eqprf(ECs3), SupPairs, EqPrfs), 
+  foldl(propagate, EqPrfs, ECs3, NewECs).
   
-prove_eq_ecs(ECs, (TrmA, TrmB), Prf) :- 
-  TrmA =.. [Fun | TrmsA],
-  TrmB =.. [Fun | TrmsB],
-  length(TrmsA, Lth),
+mono_ecs_eqprf(ECs, (TermA, TermB), (TermA, Prf, TermB)) :- 
+  mono_ecs_prf(ECs, TermA, TermB, Prf). 
+
+% Prove TermA = TermB by monotonicity + equivalences classes
+mono_ecs_prf(ECs, TermA, TermB, EqPrf) :- 
+  TermA =.. [Fun | TermsA],
+  TermB =.. [Fun | TermsB],
+  length(TermsA, Lth),
   mk_fun_mono(Lth, Fun, Mono), 
-  prove_mono_cons(ECs, open(Mono), TrmsA, TrmsB, Prf).
+  mono_ecs_prf_core(ECs, Mono, TermsA, TermsB, EqPrf).
 
-prove_eq_ecs(ECs, TrmA, TrmB, Eqn) :- 
-  first(prove_eq_ec(TrmA, TrmB), ECs, Eqn).
+mono_ecs_prf_core(_, (_ = _), [], [], close).
 
-prove_eq_ec(TrmA, TrmB, (Tree, _), Eqn) :- 
-  prove_eq_et(TrmA, TrmB, Tree, Eqn).
+mono_ecs_prf_core(ECs, Mono, [TermA | TermsA], [TermB | TermsB], 
+  gamma(TermA, Mono, 
+    gamma(TermB, MonoA, 
+      cut(TermA = TermB, 
+        beta(MonoAB, (TermA = TermB), PrfA), 
+        PrfB)))) :-
+  break_gamma(TermA, Mono, MonoA),
+  break_gamma(TermB, MonoA, MonoAB),
+  MonoAB = (_ => NewMono),
+  mono_ecs_prf_core(ECs, NewMono, TermsA, TermsB, PrfA), 
+  ecs_prf(ECs, TermA, TermB, PrfB).
+
+ecs_prf(ECs, TermA, TermB, Prf) :- 
+  first(ec_prf(TermA, TermB), ECs, Prf).
+
+ec_prf(TermA, TermB, (Tree, _), Eqn) :- 
+  et_prf(TermA, TermB, Tree, Eqn).
+
+et_prf(Term, Term, elem(Term), gamma(Term, (! [X] : (X = X)), close)).
+
+et_prf(TermA, TermB, bridge(TreeL, (TermL, PrfLR, TermR), TreeR), PrfAB) :- 
+  ( member_tree(TermA, TreeL), 
+    member_tree(TermB, TreeL), 
+    et_prf(TermA, TermB, TreeL, PrfAB) ) ; 
+  ( member_tree(TermA, TreeR), 
+    member_tree(TermB, TreeR), 
+    et_prf(TermA, TermB, TreeR, PrfAB) ) ; 
+  ( et_prf(TermA, TermL, TreeL, PrfL), 
+    et_prf(TermR, TermB, TreeR, PrfR), 
+    prove_eq_trans([TermA, TermL, TermR, TermB], [PrfL, PrfLR, PrfR], PrfAB) ) ;
+  ( et_prf(TermB, TermL, TreeL, PrfL), 
+    et_prf(TermR, TermA, TreeR, PrfR), 
+    prove_eq_trans([TermB, TermL, TermR, TermA], [PrfL, PrfLR, PrfR], PrfAB) ).
 
 prove_eq_trans([_, _], [Prf], Prf). 
 
-prove_eq_trans([TrmA, TrmB | Trms], [PrfAB | Prfs], 
-  imp_elim(
-    imp_elim(
-      fa_elim(
-        TrmC,
-        fa_elim(
-          TrmB,
-          fa_elim(
-            TrmA, 
-            open(! [X, Y, Z] : ((X = Y) => ((Y = Z) => (X = Z)))), 
-            (! [Y, Z] : ((TrmA = Y) => ((Y = Z) => (TrmA = Z))))
-          ), 
-          (! [Z] : ((TrmA = TrmB) => ((TrmB = Z) => (TrmA = Z))))
-        ),
-        ((TrmA = TrmB) => ((TrmB = TrmC) => (TrmA = TrmC)))
-      ),
-      PrfAB,
-      ((TrmB = TrmC) => (TrmA = TrmC))
-    ),
-    PrfBC, 
-    (TrmA = TrmC)
-  )
-) :-
-  prove_eq_trans([TrmB | Trms], Prfs, PrfBC), 
-  rhs(PrfBC, TrmC).
-
-prove_eq_et(Trm, Trm, elem(Trm), 
-  fa_elim(Trm, open(! [X] : (X = X)), (Trm = Trm))). 
-
-prove_eq_et(TrmA, TrmB, bridge(TreeL, PrfLR, TreeR), PrfAB) :- 
-  ( member_tree(TrmA, TreeL), 
-    member_tree(TrmB, TreeL), 
-    prove_eq_et(TrmA, TrmB, TreeL, PrfAB) ) ; 
-  ( member_tree(TrmA, TreeR), 
-    member_tree(TrmB, TreeR), 
-    prove_eq_et(TrmA, TrmB, TreeR, PrfAB) ) ; 
-  ( lhs(Eqn, TrmL), 
-    rhs(Eqn, TrmR), 
-    prove_eq_et(TrmA, TrmL, TreeL, PrfL), 
-    prove_eq_et(TrmR, TrmB, TreeR, PrfR), 
-    prove_eq_trans([TrmA, TrmL, TrmR, TrmB], [PrfL, PrfLR, PrfR], PrfAB) ) ;
-  ( lhs(Eqn, TrmL), 
-    rhs(Eqn, TrmR), 
-    prove_eq_et(TrmB, TrmL, TreeL, PrfL), 
-    prove_eq_et(TrmR, TrmA, TreeR, PrfR), 
-    prove_eq_trans([TrmB, TrmL, TrmR, TrmA], [PrfL, PrfLR, PrfR], PrfAB) ).
+prove_eq_trans([TermA, TermB | Terms], [PrfAB | Prfs], 
+  gamma(TermA, (! [X, Y, Z] : ((X = Y) => ((Y = Z) => (X = Z)))), 
+    gamma(TermB, (! [Y, Z] : ((TermA = Y) => ((Y = Z) => (TermA = Z)))),
+      gamma(TermC, (! [Z] : ((TermA = TermB) => ((TermB = Z) => (TermA = Z)))),
+        cut(TermA = TermB, 
+          beta((TermA = TermB) => ((TermB = TermC) => (TermA = TermC)), 
+            (TermA = TermB), 
+            cut(TermB = TermC, 
+              beta((TermB = TermC) => (TermA = TermC), 
+                TermB = TermC, 
+                close), 
+              PrfBC)), 
+          PrfAB))))) :-
+  last(Terms, TermC),
+  prove_eq_trans([TermB | Terms], Prfs, PrfBC).
 
 cc(EqHyps, ECs, NewECs) :- 
   foldl(propagate, EqHyps, ECs, NewECs).
@@ -540,12 +494,12 @@ init_ec(Terms, Term, (elem(Term), Sups)) :-
 init_ecs(Terms, ECs) :- 
   maplist(init_ec(Terms), Terms, ECs).
 
-mk_eqhyp((TrmA = TrmB), open(TrmA = TrmB)).
+mk_eqhyp((TermA = TermB), (TermA, close, TermB)).
 
-% ne_self_prf((~ (Trm = Trm), Prf), (Trm, Prf)).
+% ne_self_prf((~ (Term = Term), Prf), (Term, Prf)).
 % 
-% find_contra(NormLits, (Trm = Trm), refleq, ReflNePrf) :- 
-%   first(ne_self_prf, NormLits, (Trm, ReflNePrf)).
+% find_contra(NormLits, (Term = Term), refleq, ReflNePrf) :- 
+%   first(ne_self_prf, NormLits, (Term, ReflNePrf)).
 % 
 % find_contra(NormLits, Atom, PosPrf, NegPrf) :- 
 %   member((~ Atom, NegPrf), NormLits), 
@@ -558,61 +512,59 @@ mk_eqhyp((TrmA = TrmB), open(TrmA = TrmB)).
 % 
 % normalize_term_in(Term, (Tree, _), (Eqn, NormTerm)) :- 
 %   representative(Tree, NormTerm), 
-%   prove_eq_et(Term, NormTerm, Tree, Eqn).
+%   et_prf(Term, NormTerm, Tree, Eqn).
 % 
 % normalize_term(ECs, Term, Eqn, NormTerm) :- 
 %   first(normalize_term_in(Term), ECs, (Eqn, NormTerm)).
 
 
-eq_mod_ec(TrmA, TrmB, EC) :- 
-  member_ec(TrmA, EC),
-  member_ec(TrmB, EC).
+eq_mod_ec(TermA, TermB, EC) :- 
+  member_ec(TermA, EC),
+  member_ec(TermB, EC).
 
-eq_mod_ecs(ECs, TrmA, TrmB) :- 
-  any(eq_mod_ec(TrmA, TrmB), ECs).
+eq_mod_ecs(ECs, TermA, TermB) :- 
+  any(eq_mod_ec(TermA, TermB), ECs).
 
 iff_mod_ecs(ECs, AtomA, AtomB) :- 
   AtomA =.. [Rel | TermsA],
   AtomB =.. [Rel | TermsB],
   maplist(eq_mod_ecs(ECs), TermsA, TermsB).
 
-prove_by_ecs(ECs, Lits, not_elim(open(~ (TrmA = TrmB)), Prf, $false)) :- 
-  occurs((~ (TrmA = TrmB)), Lits),
-  eq_mod_ecs(ECs, TrmA, TrmB),
-  prove_eq_ecs(ECs, TrmA, TrmB, Prf).
+ecs_lits_prf(ECs, Lits, Prf) :- 
+  occurs((~ (TermA = TermB)), Lits),
+  eq_mod_ecs(ECs, TermA, TermB),
+  ecs_prf(ECs, TermA, TermB, Prf).
 
-prove_by_ecs(ECs, Lits, not_elim(open(~ AtomB), imp_elim(Prf, open(AtomA), AtomB), $false)) :- 
-  occurs(AtomA, Lits),
-  occurs((~ AtomB), Lits),
-  iff_mod_ecs(ECs, AtomA, AtomB), 
-  AtomA =.. [Rel | TermsA], 
-  AtomB =.. [Rel | TermsB], 
-  length(TermsA, Lth),
-  mk_rel_mono(Lth, Rel, Mono), 
-  prove_mono_cons(ECs, open(Mono), TermsA, TermsB, Prf).
+propatom(! _ : _) :- !, false.
+propatom(? _ : _) :- !, false.
+propatom(~ _) :- !, false.
+propatom(_ | _) :- !, false.
+propatom(_ & _) :- !, false.
+propatom(_ => _) :- !, false.
+propatom(_ <=> _) :- !, false.
+propatom(_).
 
-prove_mono_cons(ECs, MonoPrf, [TrmA | TrmsA], [TrmB | TrmsB], Prf) :-
-  conc(MonoPrf, Mono), % ! [X, Y] : ((X = Y) => Mono)), 
-  fa_inst(TrmA, Mono, MonoA),
-  fa_inst(TrmB, MonoA, MonoAB),
-  MonoAB = (_ => NewMono),
-  prove_eq_ecs(ECs, TrmA, TrmB, EqPrf), 
-  prove_mono_cons(ECs, 
-    imp_elim(fa_elim(TrmB, fa_elim(TrmA, MonoPrf, MonoA), MonoAB), EqPrf, NewMono), 
-    TrmsA, TrmsB, Prf). 
+literal(~ Atom) :- 
+  propatom(Atom).
 
-prove_mono_cons(_, Prf, [], [], Prf).
-
-% not 
-% imp 
-% fa_elim
+literal(Atom) :- 
+  propatom(Atom).
 
 conc(open(Conc), Conc).
 conc(closed(Conc), Conc).
-conc(not_elim(_, _, Conc), Conc).
+
+conc(not_elim(_, _), $false).
 conc(not_intro(_, Conc), Conc).
+
+conc(or_elim(_, _, _, Conc), Conc).
+conc(or_intro(_, Conc), Conc).
+
+conc(and_elim(_, _, Conc), Conc).
+conc(and_intro(_, _, Conc), Conc).
+
 conc(imp_elim(_, _, Conc), Conc).
 conc(imp_intro(_, Conc), Conc).
+
 conc(fa_elim(_, _, Conc), Conc).
 conc(fa_intro(_, Conc), Conc).
 
@@ -622,101 +574,311 @@ map_hyp(Goal, closed(Form), Prf) :-
 map_hyp(Goal, open(Form), Prf) :-
   call(Goal, open(Form), Prf).
 
-map_hyp(Goal, not_elim(PrfA, PrfB, Conc), not_elim(NewPrfA, NewPrfB, Conc)) :- 
+map_hyp(Goal, 
+  or_elim(PrfA, PrfB, PrfC, Conc), 
+  or_elim(NewPrfA, NewPrfB, NewPrfC, Conc)) :- 
+  map_hyp(Goal, PrfA, NewPrfA),
+  map_hyp(Goal, PrfB, NewPrfB),
+  map_hyp(Goal, PrfC, NewPrfC).
+
+map_hyp(Goal, 
+  or_intro(Prf, Conc), 
+  or_intro(NewPrf, Conc)) :- 
+  map_hyp(Goal, Prf, NewPrf).
+
+map_hyp(Goal, and_elim(Dir, Prf, Conc), and_elim(Dir, NewPrf, Conc)) :- 
+  map_hyp(Goal, Prf, NewPrf).
+
+map_hyp(Goal, and_intro(PrfA, PrfB, Conc), and_intro(NewPrfA, NewPrfB, Conc)) :- 
   map_hyp(Goal, PrfA, NewPrfA),
   map_hyp(Goal, PrfB, NewPrfB).
 
-map_hyp(Form, not_intro(Prf, Conc), not_intro(NewPrf, Conc)) :- 
-  map_hyp(Form, Prf, NewPrf).
+map_hyp(Goal, not_elim(PrfA, PrfB), not_elim(NewPrfA, NewPrfB)) :- 
+  map_hyp(Goal, PrfA, NewPrfA),
+  map_hyp(Goal, PrfB, NewPrfB).
 
-map_hyp(Form, imp_elim(PrfA, PrfB, Conc), imp_elim(NewPrfA, NewPrfB, Conc)) :- 
-  map_hyp(Form, PrfA, NewPrfA),
-  map_hyp(Form, PrfB, NewPrfB).
+map_hyp(Goal, not_intro(Prf, Conc), not_intro(NewPrf, Conc)) :- 
+  map_hyp(Goal, Prf, NewPrf).
 
-map_hyp(Form, imp_intro(Prf, Conc), imp_intro(NewPrf, Conc)) :- 
-  map_hyp(Form, Prf, NewPrf).
+map_hyp(Goal, imp_elim(PrfA, PrfB, Conc), imp_elim(NewPrfA, NewPrfB, Conc)) :- 
+  map_hyp(Goal, PrfA, NewPrfA),
+  map_hyp(Goal, PrfB, NewPrfB).
 
-map_hyp(Form, fa_elim(Trm, Prf, Conc), fa_elim(Trm, NewPrf, Conc)) :- 
-  map_hyp(Form, Prf, NewPrf).
+map_hyp(Goal, imp_intro(Prf, Conc), imp_intro(NewPrf, Conc)) :- 
+  map_hyp(Goal, Prf, NewPrf).
 
-map_hyp(Form, fa_intro(Prf, Conc), fa_intro(NewPrf, Conc)) :- 
-  map_hyp(Form, Prf, NewPrf).
+map_hyp(Goal, fa_elim(Term, Prf, Conc), fa_elim(Term, NewPrf, Conc)) :- 
+  map_hyp(Goal, Prf, NewPrf).
 
-is_hyp((file(_, _), _)).
+map_hyp(Goal, fa_intro(Prf, Conc), fa_intro(NewPrf, Conc)) :- 
+  map_hyp(Goal, Prf, NewPrf).
+
+map_hyp(Goal, raa(Prf, Conc), raa(NewPrf, Conc)) :- 
+  map_hyp(Goal, Prf, NewPrf).
+
+% is_hyp((file(_, _), _)).
 
 id_conc(Id, Conc) :- 
   fof(Id, _, Conc, _).
 
-init_goal((inference(Rul, _, PremIds), Conc), deduce(NewPrems, NewConc, Rul)) :- 
-  desugar(Conc, NewConc),
-  maplist(id_conc, PremIds, Prems),
-  maplist(desugar, Prems, NewPrems).
+init_goal((introduced(Rul, _), Conc), ([], Form, Rul)) :- 
+ translate(0, Conc, Form).
 
-propositional(Rul) :-
-  member(Rul, [cnf_transformation]).
+init_goal((inference(Rul, _, PremIds), Conc), (Forms, Form, Rul)) :- 
+ translate(0, Conc, Form),
+  maplist(id_conc, PremIds, Prems),
+  maplist(translate(0), Prems, Forms).
+
+logical(Rul) :-
+  member(
+    Rul,
+    [
+      resolution,
+      cnf_transformation,
+      subsumption_resolution,
+      avatar_sat_refutation,
+      avatar_contradiction_clause
+    ]
+  ).
 
 equational(Rul) :-
   member(Rul, [definition_unfolding, trivial_inequality_removal]).
 
-infer_from(_, closed(Form), closed(Form)).
-infer_from((FrmA & FrmB), open(FrmA), and_elim_left(open(FrmA & FrmB), FrmA)).
-infer_from((FrmA & FrmB), open(FrmB), and_elim_right(open(FrmA & FrmB), FrmB)).
+/* 
 
-prove_nd(Fs, not_elim(open(~ F), open(F), $false)) :- 
-  occurs(~ F, Fs),
-  occurs(F, Fs).
+% linear(+Num, +Forms, -Proof, -NewNum, -NewForms -SubPrf) :
+% Given a fresh parameter number 'Num' and formulas 'Forms', 
+% binds 'Proof' to a partially instantiated proof in which all
+% applicable linear rules have been applied, 'NewNum' to the 
+% new fresh parameter number, 'NewForms' to the new set of 
+% working formulas, and 'SubPrf' to the remaining proof after 
+% linear rule applications.
 
-prove_nd(Forms, Prf) :- 
-  pluck(Forms, (FrmP & FrmQ), Rem), 
-  prove_nd([FrmP, FrmQ | Rem], TempPrf),
-  map_hyp(infer_from(FrmP & FrmQ), TempPrf, Prf).
+linear(Num, Forms, dne(~ ~ Form, Prf), NewNum, NewForms, NewPrf) :-
+  pluck(Forms, ~ ~ Form, Rem), !, 
+  linear(Num, [Form | Rem], Prf, NewNum, NewForms, NewPrf).
 
-% prove_nd(Forms, Prf) :- 
-%   pluck(Forms, (FrmP | FrmQ), Rem), 
-%   prove_nd([FrmP, FrmQ | Rem], TempPrf),
-%   map_hyp(infer_from(FrmP & FrmQ), TempPrf, Prf).
+linear(Num, Forms, alpha(Form, Prf), NewNum, NewForms, NewPrf) :- 
+  pick(alpha, Forms, Form, Rem), 
+  break_alpha(Form, FormA, FormB), !,
+  linear(Num, [FormA, FormB | Rem], Prf, NewNum, NewForms, NewPrf).
+
+linear(Num, Forms, delta(&(Num), ExForm, Prf), NewNum, NewForms, NewPrf) :- 
+  pick(delta, Forms, ExForm, Rem), 
+  break_delta(&(Num), ExForm, Form), 
+  Succ is Num + 1, 
+  linear(Succ, [Form | Rem], Prf, NewNum, NewForms, NewPrf).
+
+linear(Num, Forms, beta(Form, close, Prf), NewNum, NewForms, NewPrf) :-
+  pick(beta, Forms, Form, Rem), 
+  break_beta(Form, FormA, FormB), 
+  has_complement(FormA, Forms), !,
+  linear(Num, [FormB | Rem], Prf, NewNum, NewForms, NewPrf).
+
+linear(Num, Forms, beta(Form, Prf, close), NewNum, NewForms, NewPrf) :-
+  pick(beta, Forms, Form, Rem), 
+  break_beta(Form, FormA, FormB), 
+  has_complement(FormB, Forms), 
+  linear(Num, [FormA | Rem], Prf, NewNum, NewForms, NewPrf).
+
+linear(Num, Forms, Prf, Num, Forms, Prf).
+
+tableaux(_, _, Forms, ff(close)) :- 
+  member($false, Forms), !.
+
+tableaux(_, _, Forms, tt(close)) :- 
+  member(~ $true, Forms), !.
+
+tableaux(_, _, Forms, close) :-
+  include(literal, Forms, Lits),
+  find_complements(Lits).
+
+tableaux(FaNum, ExNum, Forms, Prf) :-
+  linear(ExNum, Forms, Prf, NewExNum, NewForms, NewPrf), 
+  tableaux(FaNum, NewExNum, NewForms, NewPrf).
+
+tableaux(FaNum, ExNum, Forms, cut(FormA, beta(FormAB, FormA, PrfA), PrfB)) :-
+  pick(beta, Forms, FormAB, Rem), 
+  beta_minor(FormAB, FormA), !,
+  break_beta(FormAB, FormA, FormB),
+  tableaux(FaNum, ExNum, [FormB | Rem], PrfA),
+  tableaux(FaNum, ExNum, [~ FormA | Rem], PrfB).
+
+tableaux(FaNum, ExNum, Forms, gamma(Term, FaForm, Prf)) :- 
+  pick(gamma, Forms, FaForm, Rem),
+  0 < FaNum, !, 
+  FaPred is FaNum - 1,  
+  break_gamma(Term, FaForm, Form), 
+  append([Form | Rem], [FaForm], NewForms), 
+  tableaux(FaPred, ExNum, NewForms, Prf).
+
+tableaux(FaNum, Forms, Prf) :- 
+  tableaux(FaNum, 0, Forms, Prf).
+
+% If a query 'tableaux(FaNum, Forms, Prf)' failed, it means that 
+%the proof search attempted to instantiate gamma subformulas more 
+% than 'FaNum' times. In that case, Increment 'FaNum' and try again.
+tableaux(FaNum, Forms, Prf) :- 
+  FaSucc is FaNum + 1,
+  tableaux(FaSucc, Forms, Prf).
+
+tableaux(Forms, Prf) :- 
+  tableaux(0, Forms, Prf).
+
+*/
+
+positive(~ ~ Form) :- 
+  positive(Form).
+
+positive(Form) :- 
+  break_alpha(Form, FormA, FormB), 
+  ( positive(FormA) ;
+    positive(FormB) ).
+
+positive(Form) :- 
+  break_beta(Form, FormA, FormB), 
+  positive(FormA), 
+  positive(FormB).
+
+positive(FaForm) :- 
+  break_gamma(_, FaForm, Form), 
+  positive(Form). 
+
+positive(ExForm) :- 
+  break_delta(_, ExForm, Form), 
+  positive(Form). 
+
+positive(Atom) :- 
+  propatom(Atom).
+
+contab(Forms, Lim, Par, Mode, Pth, ~ ~ Form, dne(Form, Prf)) :- 
+  contab(Forms, Lim, Par, Mode, Pth, Form, Prf).
+
+contab(Forms, Lim, Par, start, Pth, Form, alpha(Form, Prf)) :- 
+  break_alpha(Form, FormA, FormB), 
+  ( ( positive(FormA), contab([FormB | Forms], Lim, Par, start, Pth, FormA, Prf) ) ; 
+    ( positive(FormB), contab([FormA | Forms], Lim, Par, start, Pth, FormB, Prf) ) ).
+
+contab(Forms, Lim, Par, Mode, Pth, Form, alpha(Form, Prf)) :- 
+  member(Mode, [block, match(_)]),
+  break_alpha(Form, FormA, FormB), 
+  ( contab([FormB | Forms], Lim, Par, Mode, Pth, FormA, Prf) ; 
+    contab([FormA | Forms], Lim, Par, Mode, Pth, FormB, Prf) ).
+
+contab(Forms, Lim, Par, Mode, Pth, Form, beta(Form, PrfA, PrfB)) :- 
+  member(Mode, [start, block]),
+  break_beta(Form, FormA, FormB), 
+  contab(Forms, Lim, Par, Mode, Pth, FormA, PrfA),
+  contab(Forms, Lim, Par, Mode, Pth, FormB, PrfB). 
+
+contab(Forms, Lim, Par, match(Lit), Pth, Form, beta(Form, PrfA, PrfB)) :- 
+  break_beta(Form, FormA, FormB), 
+  (
+    ( contab(Forms, Lim, Par, match(Lit), Pth, FormA, PrfA),
+      contab(Forms, Lim, Par, block, Pth, FormB, PrfB) ) ;  
+    ( contab(Forms, Lim, Par, match(Lit), Pth, FormB, PrfB),
+      contab(Forms, Lim, Par, block, Pth, FormA, PrfA) ) 
+  ).
+
+contab(Forms, Lim, Par, Mode, Pth, FaForm, gamma(Term, FaForm, Prf)) :- 
+  break_gamma(Term, FaForm, Form), 
+  contab([FaForm | Forms], Lim, Par, Mode, Pth, Form, Prf).
+
+contab(Forms, Lim, Par, Mode, Pth, ExForm, delta(Par, ExForm, Prf)) :- 
+  break_delta(Par, ExForm, Form), 
+  Succ is Par + 1,
+  contab(Forms, Lim, Succ, Mode, Pth, Form, Prf).
+
+contab(Forms, Lim, Par, Mode, Pth, Lit, Prf) :- 
+  literal(Lit), 
+  member(Mode, [start, block]), 
+  (
+    (has_complement(Lit, Pth), Prf = close) ; 
+    ( 
+      decr_if_pos(Lim, Pred),
+      pluck(Forms, Form, Rem),
+      contab(Rem, Pred, Par, match(Lit), [Lit | Pth], Form, Prf)  
+    )
+  ).
+
+contab(_, _, _, match(Cmp), _, Lit, close) :- 
+  literal(Lit), 
+  complementary(Lit, Cmp).
+
+contab(Forms, Lim, Prf) :- 
+  add_eq_axioms(Forms, NewForms),
+  pluck(NewForms, Form, Rem),
+  positive(Form),
+  contab(Rem, Lim, 0, start, [$true, ~ $false], Form, Prf).
+
+contab(Forms, 10, timeout(Forms)).
+
+contab(Forms, Lim, Prf) :- 
+  Succ is Lim + 1,
+  contab(Forms, Succ, Prf).
+
+add_eq_axioms(Forms, NewForms) :-
+  has_eq(Forms) ->
+  append(
+    Forms,
+    [
+      (! 0 : (#(0) = #(0))),
+      (! 0 : ! 1 : ((#(0) = #(1)) => (#(1) = #(0)))), 
+      (! 0 : ! 1 : ! 2 : ((#(0) = #(1)) => ((#(1) = #(2)) => (#(0) = #(2)))))
+    ], 
+    NewForms) ; 
+  NewForms = Forms. 
+
+has_complement(Lit, Pth) :-
+  member(Cmp, Pth),
+  complementary(Lit, Cmp).
+
+complementary(~ FormA, FormB) :- !,
+  unify_with_occurs_check(FormA, FormB).
+  
+complementary(FormA, ~ FormB) :- !,
+  unify_with_occurs_check(FormA, FormB).
+
+% find_complements([Lit | Lits]) :- 
+%   complementary(Lit, Cmpl), 
+%   member(Cmpl, Lits).
 % 
-% prove_nd(Forms, Prf) :- 
-%   pluck(Forms, (FrmP => FrmQ), Rem), 
-%   prove_nd([FrmP, FrmQ | Rem], TempPrf),
-%   map_hyp(infer_from(FrmP & FrmQ), TempPrf, Prf).
+% find_complements([_ | Lits]) :- 
+%   find_complements(Lits).
 
-close_if_eq(_, closed(Form), closed(Form)).
-close_if_eq(Form, open(Form), closed(Form)) :- !.
-close_if_eq(_, open(Form), open(Form)).
+elab((Prems, Conc, Rul), lemma(Prf, Conc)) :- 
+  logical(Rul),
+  contab([~ Conc | Prems], 0, Prf), !.
 
-close_hyp(Form, Prf, NewPrf) :-
-  map_hyp(close_if_eq(Form), Prf, NewPrf).
+% elab((Prems, Conc, Rul), lemma(Prf, Conc)) :- 
+%   equational(Rul),
+%   Lits = [~ Conc | Prems], 
+%   lits_sub_terms(Lits, Terms),
+%   init_ecs(Terms, InitECs), 
+%   collect(mk_eqhyp, Prems, EqHyps),
+%   cc(EqHyps, InitECs, ECs),
+%   ecs_lits_prf(ECs, Lits, Prf), !.
 
-prove(deduce(Prems, Conc, Rul), raa(Prf, Conc)) :- 
-  propositional(Rul),
-  prove_nd([~ Conc | Prems], TempPrf),
-  close_hyp(~ Conc, TempPrf, Prf).
+elab((Prems, Conc, Rul), admit(Prems, Conc, Rul)) :- !. 
 
-prove(deduce(Prems, Conc, Rul), Prf) :- 
-  equational(Rul),
-  Lits = [~ Conc | Prems], 
-  lits_sub_terms(Lits, Terms),
-  init_ecs(Terms, InitECs), 
-  collect(mk_eqhyp, Prems, EqHyps),
-  cc(EqHyps, InitECs, ECs),
-  prove_by_ecs(ECs, Lits, FalsePrf),  
-  ( ( Conc = $false, Prf = FalsePrf ) ; 
-    ( close_hyp(~ Conc, FalsePrf, TempPrf), 
-      Prf = raa(TempPrf, Conc) ) ).
+has_eq(Exp) :-
+  Exp =.. ['=' | _].
 
-prove(deduce(Prems, Conc, Rul), admit(Prems, Conc, Rul)). 
+has_eq(Exp) :-
+  Exp =.. [_ | Args],
+  any(has_eq, Args).
 
-prove_debug(Source) :-
+prove(Source) :-
   dynamic(fof/4),
   retractall(fof(_, _, _, _)),
   consult(Source),
-  findall((Just, Conc), fof(_, _, Conc, Just), Lines),
-  exclude(is_hyp, Lines, Steps),
-  maplist(init_goal, Steps, Goals),
-  maplist(prove, Goals, Prfs),
-  maplist(check([]), Prfs),
-  write("CHECK SUCCESS!!!").
+  findall((Just, Conc), fof(_, _, Conc, Just), Steps),
+  collect(init_goal, Steps, Goals),
+  maplist(elab, Goals, Prfs),
+  list_string(Prfs, Str),
+  % maplist(check([]), Prfs),
+  % write("CHECK SUCCESS!!!").
+  write_file("output", Str).
 
 verify(Source) :-
   retractall(theorem(_, _)),

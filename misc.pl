@@ -71,6 +71,9 @@ pick(Goal, [Elem | Rem], Elem, Rem) :-
 pick(Goal, [ElemA | List], ElemB, [ElemA | Rem]) :- 
   pick(Goal, List, ElemB, Rem).
 
+find(Goal, List, Elem) :- 
+  pick(Goal, List, Elem, _).
+
 pluck([Elem | Rem], Elem, Rem).
 
 pluck([ElemA | List], ElemB, [ElemA | Rem]) :- 
@@ -107,7 +110,16 @@ any(Goal, [Elem | _]) :-
 any(Goal, [_ | List]) :-
   any(Goal, List).
 
+list_string(List, Str) :-
+  maplist(term_string, List, Strs), 
+  strings_concat_with("\n\n", Strs, Str).
+  
+last([Elem], Elem). 
+last([_ | List], Elem) :- last(List, Elem). 
 
+decr_if_pos(Num, Pred) :-
+  0 < Num,
+  Pred is Num - 1.
 
 
 % write_punct(Stm, X) :-
