@@ -27,17 +27,17 @@ strings_concat_with(Div, [Str | Strs], Result) :-
   strings_concat_with(Div, Strs, TempStr),
   strings_concat([Str, Div, TempStr], Result).
 
-% Similar to nth0/3, but avoids instantiating list elements.
-where(ElemA, [ElemB | _], 0) :- 
-  subsumes(ElemA, ElemB).
-
-where(Elem, [_ | List], Num) :- 
-  where(Elem, List, PredNum), 
-  Num is PredNum + 1.
-
-% Similar to member/2, but avoids instantiating list elements.
+% % Similar to nth0/3, but avoids instantiating list elements.
+% where(ElemA, [ElemB | _], 0) :- 
+%   subsumes(ElemA, ElemB).
+% 
+% where(Elem, [_ | List], Num) :- 
+%   where(Elem, List, PredNum), 
+%   Num is PredNum + 1.
+ 
+% Similar to member/2, but avoids instantion.
 occurs(ElemA, [ElemB | _]) :- 
-  subsumes(ElemA, ElemB).
+  ElemA == ElemB.
 
 occurs(Elem, [_ | List]) :-
   occurs(Elem, List).
