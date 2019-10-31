@@ -535,14 +535,10 @@ ecs_lits_prf(ECs, Lits, Prf) :-
   eq_mod_ecs(ECs, TermA, TermB),
   ecs_prf(ECs, TermA, TermB, Prf).
 
-propatom(! _ : _) :- !, false.
-propatom(? _ : _) :- !, false.
-propatom(~ _) :- !, false.
-propatom(_ | _) :- !, false.
-propatom(_ & _) :- !, false.
-propatom(_ => _) :- !, false.
-propatom(_ <=> _) :- !, false.
-propatom(_).
+propatom(Atom) :- 
+  not(member(Atom, 
+    [ (! _ : _), (? _ : _), (~ _), 
+      (_ | _), (_ & _), (_ => _), (_ <=> _) ])).
 
 literal(~ Atom) :- 
   propatom(Atom).
@@ -817,17 +813,81 @@ contab(Forms, Lim, Prf) :-
   Succ is Lim + 1,
   contab(Forms, Succ, Prf).
 
+rels_funs(! _ : Form, Rels, Funs) :- 
+  rels_funs(Form, Rels, Funs).
+
+rels_funs(? _ : Form, Rels, Funs) :- 
+  rels_funs(Form, Rels, Funs).
+
+rels_funs(~ Form, Rels, Funs) :- 
+  rels_funs(Form, Rels, Funs).
+
+rels_funs(FormA & FormB, Rels, Funs) :- 
+  rels_funs(FormA, RelsA, FunsA),
+  rels_funs(FormB, RelsB, FunsB),
+  union(RelsA, RelsB, Rels),
+  union(FunsA, FunsB, Funs).
+
+rels_funs(FormA | FormB, Rels, Funs) :- 
+  rels_funs(FormA, RelsA, FunsA),
+  rels_funs(FormB, RelsB, FunsB),
+  union(RelsA, RelsB, Rels),
+  union(FunsA, FunsB, Funs).
+
+rels_funs(FormA => FormB, Rels, Funs) :- 
+  rels_funs(FormA, RelsA, FunsA),
+  rels_funs(FormB, RelsB, FunsB),
+  union(RelsA, RelsB, Rels),
+  union(FunsA, FunsB, Funs).
+
+rels_funs(FormA <=> FormB, Rels, Funs) :- 
+  rels_funs(FormA, RelsA, FunsA),
+  rels_funs(FormB, RelsB, FunsB),
+  union(RelsA, RelsB, Rels),
+  union(FunsA, FunsB, Funs).
+
+rels_funs(Atom, [(Rel, Num)], Funs) :-
+  propatom(Atom), 
+  Atom =.. [Rel | Terms], 
+  length(Terms, Num),
+  maplist(funs, Terms, Funss), 
+  union(Funss, Funs).
+
+funs(#(_), []). 
+
+funs(Term, [Term]) :-
+  atom(Term).
+
+funs(Term, [(Fun, Num) | Funs]) :-
+  not(Term = #(_)),
+  not(atom(Term)),
+  Term =.. [Fun | Terms],
+  length(Terms, Num),
+  maplist(funs, Terms, Funss), 
+  union(Funss, Funs).
+
 add_eq_axioms(Forms, NewForms) :-
-  has_eq(Forms) ->
-  append(
-    Forms,
-    [
-      (! 0 : (#(0) = #(0))),
-      (! 0 : ! 1 : ((#(0) = #(1)) => (#(1) = #(0)))), 
-      (! 0 : ! 1 : ! 2 : ((#(0) = #(1)) => ((#(1) = #(2)) => (#(0) = #(2)))))
-    ], 
-    NewForms) ; 
-  NewForms = Forms. 
+  rels_funs(Forms, Rels, Funs), 
+  (
+    member('=', Rels) ->
+    (
+      maplist(mk_mono_fun, Funs, MonoFuns),
+      maplist(mk_mono_rel, Rels, MonoRels),
+       append(
+         [ 
+           Forms,
+           MonoFuns,
+           MonoRels,
+           [
+             (! 0 : (#(0) = #(0))),
+             (! 0 : ! 1 : ((#(0) = #(1)) => (#(1) = #(0)))), 
+             (! 0 : ! 1 : ! 2 : ((#(0) = #(1)) => ((#(1) = #(2)) => (#(0) = #(2)))))
+           ] 
+         ],
+         NewForms) 
+    ) ; 
+    NewForms = Forms
+  ). 
 
 has_complement(Lit, Pth) :-
   member(Cmp, Pth),
