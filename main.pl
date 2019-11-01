@@ -384,74 +384,6 @@ literal(~ Atom) :-
 literal(Atom) :- 
   propatom(Atom).
 
-conc(open(Conc), Conc).
-conc(closed(Conc), Conc).
-
-conc(not_elim(_, _), $false).
-conc(not_intro(_, Conc), Conc).
-
-conc(or_elim(_, _, _, Conc), Conc).
-conc(or_intro(_, Conc), Conc).
-
-conc(and_elim(_, _, Conc), Conc).
-conc(and_intro(_, _, Conc), Conc).
-
-conc(imp_elim(_, _, Conc), Conc).
-conc(imp_intro(_, Conc), Conc).
-
-conc(fa_elim(_, _, Conc), Conc).
-conc(fa_intro(_, Conc), Conc).
-
-map_hyp(Goal, closed(Form), Prf) :-
-  call(Goal, closed(Form), Prf).
-
-map_hyp(Goal, open(Form), Prf) :-
-  call(Goal, open(Form), Prf).
-
-map_hyp(Goal, 
-  or_elim(PrfA, PrfB, PrfC, Conc), 
-  or_elim(NewPrfA, NewPrfB, NewPrfC, Conc)) :- 
-  map_hyp(Goal, PrfA, NewPrfA),
-  map_hyp(Goal, PrfB, NewPrfB),
-  map_hyp(Goal, PrfC, NewPrfC).
-
-map_hyp(Goal, 
-  or_intro(Prf, Conc), 
-  or_intro(NewPrf, Conc)) :- 
-  map_hyp(Goal, Prf, NewPrf).
-
-map_hyp(Goal, and_elim(Dir, Prf, Conc), and_elim(Dir, NewPrf, Conc)) :- 
-  map_hyp(Goal, Prf, NewPrf).
-
-map_hyp(Goal, and_intro(PrfA, PrfB, Conc), and_intro(NewPrfA, NewPrfB, Conc)) :- 
-  map_hyp(Goal, PrfA, NewPrfA),
-  map_hyp(Goal, PrfB, NewPrfB).
-
-map_hyp(Goal, not_elim(PrfA, PrfB), not_elim(NewPrfA, NewPrfB)) :- 
-  map_hyp(Goal, PrfA, NewPrfA),
-  map_hyp(Goal, PrfB, NewPrfB).
-
-map_hyp(Goal, not_intro(Prf, Conc), not_intro(NewPrf, Conc)) :- 
-  map_hyp(Goal, Prf, NewPrf).
-
-map_hyp(Goal, imp_elim(PrfA, PrfB, Conc), imp_elim(NewPrfA, NewPrfB, Conc)) :- 
-  map_hyp(Goal, PrfA, NewPrfA),
-  map_hyp(Goal, PrfB, NewPrfB).
-
-map_hyp(Goal, imp_intro(Prf, Conc), imp_intro(NewPrf, Conc)) :- 
-  map_hyp(Goal, Prf, NewPrf).
-
-map_hyp(Goal, fa_elim(Term, Prf, Conc), fa_elim(Term, NewPrf, Conc)) :- 
-  map_hyp(Goal, Prf, NewPrf).
-
-map_hyp(Goal, fa_intro(Prf, Conc), fa_intro(NewPrf, Conc)) :- 
-  map_hyp(Goal, Prf, NewPrf).
-
-map_hyp(Goal, raa(Prf, Conc), raa(NewPrf, Conc)) :- 
-  map_hyp(Goal, Prf, NewPrf).
-
-% is_hyp((file(_, _), _)).
-
 id_conc(Id, Conc) :- 
   fof(Id, _, Conc, _).
 
@@ -463,19 +395,48 @@ init_goal((inference(Rul, _, PremIds), Conc), (Forms, Form, Rul)) :-
   maplist(id_conc, PremIds, Prems),
   maplist(translate(0), Prems, Forms).
 
-logical(Rul) :-
+clausal(Rul) :-
   member(
     Rul,
     [
       resolution,
-      cnf_transformation,
       subsumption_resolution,
-      avatar_sat_refutation,
-      avatar_contradiction_clause,
-      avatar_component_clause
+      % superposition
+      % forward_demodulation,
+      % backward_demodulation
+      none
     ]
   ).
 
+simple_fol(Rul) :-
+  member(
+    Rul,
+    [
+      % cnf_transformation,
+      avatar_sat_refutation,
+      avatar_contradiction_clause,
+      avatar_component_clause
+      % duplicate_literal_removal
+    ]
+  ).
+
+definitional(Rul) :-
+  member(
+    Rul,
+    [
+      avatar_definition
+    ]
+  ).
+
+splitting(Rul) :-
+  member(
+    Rul,
+    [
+      avatar_split_clause
+    ]
+  ).
+
+/*
 positive(~ ~ Form) :- 
   positive(Form).
 
@@ -499,84 +460,230 @@ positive(ExForm) :-
 
 positive(Atom) :- 
   propatom(Atom).
+*/
 
-contab(Forms, Lim, Par, Terms, Mode, Lems, Pth, ~ ~ Form, NewLems, dne(Form, Prf)) :- 
-  contab(Forms, Lim, Par, Terms, Mode, Lems, Pth, Form, NewLems, Prf).
+linear(Par, Form, delta(@(Par, []), Form, Prf), NewPar, Lits, SubPrf) :- 
+  break_delta(@(Par, []), Form, NewForm), 
+  Succ is Par + 1, 
+  linear(Succ, NewForm, Prf, NewPar, Lits, SubPrf).
 
-contab(Forms, Lim, Par, Terms, start, Lems, Pth, Form, NewLems, alpha(Form, Prf)) :- 
+linear(Par, Form, alpha(Form, Prf), NewPar, Lits, SubPrf) :- 
   break_alpha(Form, FormA, FormB), 
-  ( ( positive(FormA), contab([FormB | Forms], Lim, Par, Terms, start, Lems, Pth, FormA, NewLems, Prf) ) ; 
-    ( positive(FormB), contab([FormA | Forms], Lim, Par, Terms, start, Lems, Pth, FormB, NewLems, Prf) ) ).
+  linear(Par, FormA, Prf, ParA, LitsA, SubPrfA), 
+  linear(ParA, FormB, SubPrfA, NewPar, LitsB, SubPrf),
+  append(LitsA, LitsB, Lits).
 
-contab(Forms, Lim, Par, Terms, Mode, Lems, Pth, Form, NewLems, alpha(Form, Prf)) :- 
-  member(Mode, [block, match]),
-  break_alpha(Form, FormA, FormB), 
-  ( contab([FormB | Forms], Lim, Par, Terms, Mode, Lems, Pth, FormA, NewLems, Prf) ; 
-    contab([FormA | Forms], Lim, Par, Terms, Mode, Lems, Pth, FormB, NewLems, Prf) ).
+linear(Par, ~ ~ Form, dne(Form, Prf), NewPar, Lits, SubPrf) :- 
+  linear(Par, Form, Prf, NewPar, Lits, SubPrf). 
 
-contab(Forms, Lim, Par, Terms, Mode, Lems, Pth, Form, NewLems, beta(Form, PrfA, PrfB)) :- 
-  member(Mode, [start, block]),
-  break_beta(Form, FormA, FormB), 
-  contab(Forms, Lim, Par, Terms, Mode, Lems, Pth, FormA, TempLems, PrfA),
-  contab(Forms, Lim, Par, Terms, Mode, TempLems, Pth, FormB, NewLems, PrfB).
+linear(Par, Lit, Prf, Par, [Lit], Prf) :- 
+  literal(Lit).
 
-contab(Forms, Lim, Par, Terms, match, Lems, Pth, Form, NewLems, beta(Form, PrfA, PrfB)) :- 
-  break_beta(Form, FormA, FormB), 
+gammas(Form, NewForm, gamma(Term, Form, Prf), SubPrf) :- 
+  break_gamma(Term, Form, TempForm), 
+  gammas(TempForm, NewForm, Prf, SubPrf).
+
+gammas(Form, Form, Prf, Prf) :-
+  not(gamma(Form)).
+
+split(Prem, Defs, Conc, Prf) :- 
+  linear(0, ~ Conc, Prf, Par, Lits, SubPrf), 
+  split(Prem, Par, [], Lits, Defs, SubPrf).
+
+split(Prem, Par, Forms, Lits, [Def | Defs], alpha(Def, Prf)) :- 
+  break_alpha(Def, (Atom => Form), (Form => Atom)), 
   (
-    ( contab(Forms, Lim, Par, Terms, match, Lems, Pth, FormA, TempLems, PrfA),
-      contab(Forms, Lim, Par, Terms, block, TempLems, Pth, FormB, NewLems, PrfB) ) ;  
-    ( contab(Forms, Lim, Par, Terms, match, Lems, Pth, FormB, TempLems, PrfB),
-      contab(Forms, Lim, Par, Terms, block, TempLems, Pth, FormA, NewLems, PrfA) ) 
+    member(Atom, Lits) -> 
+    (
+      Prf = beta(Atom => Form, close, SubPrf),
+      split(Prem, Par, [Atom, Form | Forms], Lits, Defs, SubPrf)
+    ) ;
+    (
+      member(~ Atom, Lits) -> 
+      (
+        Prf = beta(Form => Atom, PrfA, close),
+        linear(Par, ~ Form, PrfA, NewPar, NewLits, PrfB),
+        append([~ Atom | NewLits], Forms, NewForms),
+        split(Prem, NewPar, NewForms, Lits, Defs, PrfB)
+      ) ;
+      false
+    ) 
   ).
 
-contab(Forms, Lim, Par, Terms, Mode, Lems, Pth, FaForm, NewLems, gamma(Term, FaForm, Prf)) :- 
-  break_gamma(Term, FaForm, Form), 
-  contab([FaForm | Forms], Lim, Par, [Term | Terms], Mode, Lems, Pth, Form, NewLems, Prf).
+split(Prem, _, Lits, _, [], Prf) :- 
+  close_clause(Lits, Prem, Prf).
 
-contab(Forms, Lim, Par, Terms, Mode, Lems, Pth, ExForm, NewLems, delta(Par, ExForm, Prf)) :- 
+close_goal(Lits, (Lit, Prf)) :- 
+  close_lit(Lits, Lit, Prf).
+
+decom_clause(Cla, Prf, Goals) :- 
+  break_gamma(_, Cla, NewCla), 
+  decom_clause(NewCla, Prf, Goals).
+
+decom_clause((ClaA | ClaB), beta((ClaA | ClaB), PrfA, PrfB), Goals) :- 
+  decom_clause(ClaA, PrfA, GoalsA),
+  decom_clause(ClaB, PrfB, GoalsB),
+  append(GoalsA, GoalsB, Goals).
+
+decom_clause(Lit, Prf, [(Lit, Prf)]) :-
+  literal(Lit).
+
+break_clause(Cla, Lits) :- 
+  decom_clause(Cla, _, Goals), 
+  maplist(fst, Goals, Lits).
+
+fst((X, _), X).
+
+contains(List, Elem) :- member(Elem, List).
+
+subset_except_one([Elem | Sub], List, Elem) :- 
+  subset(Sub, List).
+
+subset_except_one([ElemA | Sub], List, ElemB) :- 
+  member(ElemA, List),
+  subset_except_one(Sub, List, ElemB). 
+  
+find_pivots(Lits, ClaA, ClaB, LitA, LitB) :- 
+  maplist(invert, Lits, CmpLits),
+  break_clause(ClaA, LitsA),
+  break_clause(ClaB, LitsB),
+  subset_except_one(LitsA, CmpLits, LitA), 
+  subset_except_one(LitsB, CmpLits, LitB).
+
+find_pivot(FormA, FormB, FormB, FormA, Atom) :- 
+  break_clause(FormA, LitsA),
+  break_clause(FormB, LitsB),
+  member(~ Atom, LitsA), 
+  member(Atom, LitsB).
+
+find_pivot(FormA, FormB, FormA, FormB, Atom) :- 
+  break_clause(FormA, LitsA),
+  break_clause(FormB, LitsB),
+  member(Atom, LitsA), 
+  member(~ Atom, LitsB).
+
+resolution(ClaA, ClaB, ClaC, Prf) :- 
+  find_pivot(ClaA, ClaB, ClaP, ClaN, Atom),
+  linear(0, ~ ClaC, Prf, _, Lits, cut(Atom, PrfA, PrfB)), 
+  close_clause([Atom | Lits], ClaN, PrfA),
+  close_clause([~ Atom | Lits], ClaP, PrfB).
+
+demodulation(ClaA, ClaB, ClaC, Prf) :- 
+  linear(0, ~ ClaC, Prf, _, Lits, cut(CmpA, PrfA, cut(CmpB, PrfB, sorry))), 
+  find_pivots(Lits, ClaA, ClaB, LitA, LitB),
+  invert(LitA, CmpA),
+  invert(LitB, CmpB),
+  close_clause([CmpA | Lits], ClaA, PrfA),
+  close_clause([CmpB | Lits], ClaB, PrfB).
+
+/*
+resolution_first(Path, (FormL | FormR), FormB, beta((FormL | FormR), PrfA, PrfB)) :- 
+  resolution_first(Path, FormL, FormB, PrfA), 
+  resolution_rest(Path, FormR, PrfB).
+
+resolution_first(Path, (FormL | FormR), FormB, beta((FormL | FormR), PrfA, PrfB)) :- 
+  resolution_first(Path, FormR, FormB, PrfB), 
+  resolution_rest(Path, FormL, PrfA).
+
+resolution_first(Path, FormA, FormB, gamma(Term, FormA, Prf)) :- 
+  break_gamma(Term, FormA, NewFormA), 
+  resolution_first(Path, NewFormA, FormB, Prf).
+
+resolution_first(Path, Lit, Form, Prf) :- 
+  literal(Lit),
+  resolution_second(Path, Lit, Form, Prf).
+
+resolution_second(Path, Lit, (FormL | FormR), beta((FormL | FormR), PrfL, PrfR)) :- 
+  resolution_second(Path, Lit, FormL, PrfL),
+  resolution_rest(Path, FormR, PrfR).
+
+resolution_second(Path, Lit, (FormL | FormR), beta((FormL | FormR), PrfL, PrfR)) :- 
+  resolution_second(Path, Lit, FormR, PrfR),
+  resolution_rest(Path, FormL, PrfL).
+
+resolution_second(Path, Lit, Form, gamma(Term, Form, Prf)) :- 
+  break_gamma(Term, Form, NewForm), 
+  resolution_second(Path, Lit, NewForm, Prf).
+  
+resolution_second(_, LitA, LitB, close) :- 
+  literal(LitB),
+  complementary(LitA, LitB).
+
+resolution_rest(Path, (FormA | FormB), beta((FormA | FormB), PrfA, PrfB)) :- 
+  resolution_rest(Path, FormA, PrfA),
+  resolution_rest(Path, FormB, PrfB).
+
+resolution_rest(Path, Lit, close) :-
+  literal(Lit),
+  has_complement(Lit, Path).
+*/
+
+tableaux(Forms, Lim, Par, Terms, Mode, Lems, Pth, ~ ~ Form, NewLems, dne(Form, Prf)) :- 
+  tableaux(Forms, Lim, Par, Terms, Mode, Lems, Pth, Form, NewLems, Prf).
+
+tableaux(Forms, Lim, Par, Terms, Mode, Lems, Pth, Form, NewLems, alpha(Form, Prf)) :- 
+  break_alpha(Form, FormA, FormB), 
+  ( tableaux([FormB | Forms], Lim, Par, Terms, Mode, Lems, Pth, FormA, NewLems, Prf) ; 
+    tableaux([FormA | Forms], Lim, Par, Terms, Mode, Lems, Pth, FormB, NewLems, Prf) ).
+
+tableaux(Forms, Lim, Par, Terms, block, Lems, Pth, Form, NewLems, beta(Form, PrfA, PrfB)) :- 
+  break_beta(Form, FormA, FormB), 
+  tableaux(Forms, Lim, Par, Terms, block, Lems, Pth, FormA, TempLems, PrfA), 
+  tableaux(Forms, Lim, Par, Terms, block, TempLems, Pth, FormB, NewLems, PrfB).
+
+tableaux(Forms, Lim, Par, Terms, match, Lems, Pth, Form, NewLems, beta(Form, PrfA, PrfB)) :- 
+  break_beta(Form, FormA, FormB), 
+  (
+    ( tableaux(Forms, Lim, Par, Terms, match, Lems, Pth, FormA, TempLems, PrfA), 
+      tableaux(Forms, Lim, Par, Terms, block, TempLems, Pth, FormB, NewLems, PrfB) ) ;  
+    ( tableaux(Forms, Lim, Par, Terms, match, Lems, Pth, FormB, TempLems, PrfB), 
+      tableaux(Forms, Lim, Par, Terms, block, TempLems, Pth, FormA, NewLems, PrfA) ) 
+  ).
+
+tableaux(Forms, Lim, Par, Terms, Mode, Lems, Pth, FaForm, NewLems, gamma(Term, FaForm, Prf)) :- 
+  break_gamma(Term, FaForm, Form), 
+  tableaux([FaForm | Forms], Lim, Par, [Term | Terms], Mode, Lems, Pth, Form, NewLems, Prf).
+
+tableaux(Forms, Lim, Par, Terms, Mode, Lems, Pth, ExForm, NewLems, delta(@(Par, Terms), ExForm, Prf)) :- 
   break_delta(@(Par, Terms), ExForm, Form), 
   Succ is Par + 1,
-  contab(Forms, Lim, Succ, Terms, Mode, Lems, Pth, Form, NewLems, Prf).
+  tableaux(Forms, Lim, Succ, Terms, Mode, Lems, Pth, Form, NewLems, Prf).
 
-contab(Forms, Lim, Par, Terms, Mode, Lems, Pth, Lit, NewLems, Prf) :- 
+tableaux(Forms, Lim, Par, Terms, block, Lems, Pth, Lit, NewLems, Prf) :- 
   literal(Lit), 
-  member(Mode, [start, block]), 
   (
-    has_complement(Lit, Pth) -> 
-    (NewLems = Lems, Prf = close) ;
+    close_lit(Pth, Lit, Prf) -> 
+    (NewLems = Lems) ;
     (
-      find_lemma(Lems, Lit, Prf) -> 
+      find_lemma(Lems, Lit, Prf) -> % Lemmata check
       (NewLems = Lems) ;
       ( 
         decr_if_pos(Lim, Pred),
         not(occurs(Lit, Pth)), % Regularity check
         pluck(Forms, Form, Rem),
-        contab(Rem, Pred, Par, Terms, match, Lems, [Lit | Pth], Form, _, Prf),
+        tableaux(Rem, Pred, Par, Terms, match, Lems, [Lit | Pth], Form, _, Prf),
         NewLems = [(Lit, Prf) | Lems]
       )
     ) 
   ).
 
-contab(_, _, _, _, match, Lems, [Cmp | _], Lit, Lems, close) :- 
+tableaux(_, _, _, _, match, Lems, [Cmp | _], Lit, Lems, Prf) :- 
   literal(Lit), 
-  complementary(Lit, Cmp).
+  close_lit([Cmp], Lit, Prf).
 
-contab(Forms, Lim, Prf) :- 
+tableaux(Forms, Lim, Prf) :- 
   pluck(Forms, Form, Rem),
-  positive(Form),
-  contab(Rem, Lim, 0, [], start, [], [$true, ~ $false], Form, _, Prf).
+  tableaux(Rem, Lim, 0, [], block, [], [$true, ~ $false], Form, _, Prf).
 
-contab(Forms, 10, timeout(Forms)).
+tableaux(Forms, 10, timeout(Forms)).
 
-contab(Forms, Lim, Prf) :- 
+tableaux(Forms, Lim, Prf) :- 
   Succ is Lim + 1,
-  contab(Forms, Succ, Prf).
+  tableaux(Forms, Succ, Prf).
 
-contab(Forms, Prf) :- 
+tableaux(Forms, Prf) :- 
   add_eq_axioms(Forms, NewForms),
-  contab(NewForms, 5, Prf).
-
-fst((X, _), X). 
+  tableaux(NewForms, 5, Prf).
 
 find_lemma(Lems, LitA, Prf) :-
   member((LitB, Prf), Lems), 
@@ -666,9 +773,19 @@ add_eq_axioms(Forms, NewForms) :-
     NewForms = Forms
   ). 
 
-has_complement(Lit, Pth) :-
-  member(Cmp, Pth),
+close_lit(Lits, Lit, close) :-
+  member(Cmp, Lits),
   complementary(Lit, Cmp).
+
+close_lit(Lits, (TermA = TermB), Prf) :-
+  member(Cmp, Lits),
+  complementary(Cmp, (TermB = TermA)),
+  prove_symm(TermA, TermB, Prf, close).
+
+invert(~ Form, Form).
+
+invert(Form, ~ Form) :-
+  not(Form = ~ _).
 
 complementary(~ FormA, FormB) :- !,
   unify_with_occurs_check(FormA, FormB).
@@ -676,18 +793,42 @@ complementary(~ FormA, FormB) :- !,
 complementary(FormA, ~ FormB) :- !,
   unify_with_occurs_check(FormA, FormB).
 
-% find_complements([Lit | Lits]) :- 
-%   complementary(Lit, Cmpl), 
-%   member(Cmpl, Lits).
-% 
-% find_complements([_ | Lits]) :- 
-%   find_complements(Lits).
+prove_symm(TermA, TermB, 
+  gamma(TermA, ! 0: ! 1: ((#(0) = #(1)) => (#(1) = #(0))),
+    gamma(TermB, ! 1: ((TermA = #(1)) => (#(1) = TermA)),
+      beta((TermA = TermB) => (TermB = TermA), close, Prf))), 
+  Prf).
 
-elab((Prems, Conc, Rul), lemma(Prf, Conc)) :- 
-  logical(Rul),
-  contab([~ Conc | Prems], Prf), !.
+undup(Prem, Conc, Prf) :-
+  linear(0, ~ Conc, Prf, _, Lits, SubPrf), 
+  close_clause(Lits, Prem, SubPrf).
 
-elab((Prems, Conc, Rul), admit(Prems, Conc, Rul)) :- !. 
+close_clause(Lits, Cla, Prf) :- 
+  decom_clause(Cla, Prf, Goals), 
+  maplist(close_goal(Lits), Goals). 
+
+elab(([ClaA, ClaB], ClaC, backward_demodulation), val(Prf, ClaC)) :- 
+  demodulation(ClaA, ClaB, ClaC, Prf).
+
+elab(([Prem], Conc, duplicate_literal_removal), val(Prf, Conc)) :- 
+  undup(Prem, Conc, Prf).
+
+elab(([Prem | Prems], Conc, Rul), val(Prf, Conc)) :- 
+  splitting(Rul),
+  split(Prem, Prems, Conc, Prf).
+
+elab(([PremA, PremB], Conc, Rul), val(Prf, Conc)) :- 
+  clausal(Rul),
+  resolution(PremA, PremB, Conc, Prf).
+
+elab((Prems, Conc, Rul), val(Prf, Conc)) :- 
+  simple_fol(Rul),
+  tableaux([~ Conc | Prems], Prf).
+
+elab((Prems, Conc, Rul), sat(Prems, Conc, Rul)) :- 
+  definitional(Rul).
+
+elab((Prems, Conc, Rul), admit(Prems, Conc, Rul)).
 
 has_eq(Exp) :-
   Exp =.. ['=' | _].

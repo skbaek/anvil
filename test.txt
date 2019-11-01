@@ -1,0 +1,5 @@
+elab(([
+ (someone=aunt_agatha|~spl0_2)
+ ~killed(aunt_agatha,aunt_agatha)
+
+killed(someone,someone) & spl0_2)
