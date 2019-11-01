@@ -178,11 +178,18 @@ decr_if_pos(Num, Pred) :-
   0 < Num,
   Pred is Num - 1.
 
+prove_eq_symm(TermA, PrfAB, TermB, 
+  gamma(TermA, ! 0: ! 1: ((#(0) = #(1)) => (#(1) = #(0))),
+    gamma(TermB, ! 1: ((TermA = #(1)) => (#(1) = TermA)),
+      beta((TermA = TermB) => (TermB = TermA), PrfAB, Prf))), 
+  Prf).
 
-% write_punct(Stm, X) :-
-%   write(Stm, X),
-%   write(Stm, ".\n\n").
-% groundfix(Var, []) :- var(Var), !.
-% 
-% groundfix([Elem | List], [Elem | Gfx]) :- 
-%   groundfix(List, Gfx).
+prove_eq_trans(TermA, PrfAB, TermB, PrfBC, TermC,  
+  gamma(TermA, (! [X, Y, Z] : ((X = Y) => ((Y = Z) => (X = Z)))), 
+    gamma(TermB, (! [Y, Z] : ((TermA = Y) => ((Y = Z) => (TermA = Z)))),
+      gamma(TermC, (! [Z] : ((TermA = TermB) => ((TermB = Z) => (TermA = Z)))),
+        beta((TermA = TermB) => ((TermB = TermC) => (TermA = TermC)), PrfAB,
+          beta((TermB = TermC) => (TermA = TermC), PrfBC, Prf))))), Prf).
+
+unneg(~ Atom, Atom) :- !.
+unneg(Atom, Atom).

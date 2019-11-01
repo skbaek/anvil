@@ -1,4 +1,4 @@
-:- [basic].
+:- [basic, cc].
 
 :- op(1130, xfy, <=>). % equivalence
 :- op(1110, xfy, =>).  % implication
@@ -103,49 +103,6 @@ verify(Bch, tt(Prf)) :-
 
 verify(Bch, ff(Prf)) :-
   verify([~ $false | Bch], Prf).
-
-mk_mono_args(0, [], []).
-
-mk_mono_args(Num, [#(NumA) | VarsA], [#(NumB) | VarsB]) :-
-  NumA is (Num * 2) - 1, 
-  NumB is (Num * 2) - 2, 
-  Pred is Num - 1,
-  mk_mono_args(Pred, VarsA, VarsB).
-
-mk_mono_eq(Num, Fun, TermA = TermB) :- 
-  mk_mono_args(Num, VarsA, VarsB),
-  TermA =.. [Fun | VarsA],
-  TermB =.. [Fun | VarsB].
-
-mk_mono_imp(Num, Rel, AtomA => AtomB) :- 
-  mk_mono_args(Num, VarsA, VarsB),
-  AtomA =.. [Rel | VarsA],
-  AtomB =.. [Rel | VarsB], !.
-
-mk_mono_fun_filter((Fun, Num), Mono) :- 
-  0 < Num,
-  mk_mono_fun((Fun, Num), Mono). 
-
-mk_mono_fun((Fun, Num), Mono) :- 
-  mk_mono_eq(Num, Fun, Eq), 
-  mk_mono(Num, Eq, Mono), !.
-
-mk_mono_rel((Rel, Num), Mono) :- 
-  mk_mono_imp(Num, Rel, Imp), 
-  mk_mono(Num, Imp, Mono).
-
-mk_mono_rel_filter((Rel, Num), Mono) :- 
-  not((Rel = (=), Num = 2)), 
-  0 < Num,
-  mk_mono_rel((Rel, Num), Mono). 
-
-mk_mono(0, Cons, Cons).
-
-mk_mono(Num, Cons, ! NumA : ! NumB : ((#(NumA) = #(NumB)) => Mono)) :-
-  NumA is (Num * 2) - 1, 
-  NumB is (Num * 2) - 2, 
-  decr_if_pos(Num, Pred), 
-  mk_mono(Pred, Cons, Mono), !. 
 
 uses(_, Var) :- 
   var(Var), !, false.
@@ -320,9 +277,6 @@ punctuate(Term, Str) :-
 %   punctuate(theorem(Smt, Prf), Str),
 %   write_file(Target, Str).
 
-unneg(~ Atom, Atom) :- !.
-unneg(Atom, Atom).
-
 propatom(Atom) :- 
   not(member(Atom, 
     [ (! _ : _), (? _ : _), (~ _), 
@@ -345,7 +299,17 @@ init_goal((inference(Rul, _, PremIds), Conc), (Forms, Form, Rul)) :-
   maplist(id_conc, PremIds, Prems),
   maplist(translate(0), Prems, Forms).
 
-clausal(Rul) :-
+superpositional(Rul) :-
+  member(
+    Rul,
+    [
+      superposition,
+      forward_demodulation,
+      backward_demodulation
+    ]
+  ).
+
+resolutional(Rul) :-
   member(
     Rul,
     [
@@ -412,6 +376,13 @@ positive(Atom) :-
   propatom(Atom).
 */
 
+linear(Par, [], Prf, Par, [], Prf). 
+
+linear(Par, [Form | Forms], Prf, NewPar, Lits, SubPrf) :-
+  linear(Par, Form, Prf, TempPar, LitsA, TempPrf),
+  linear(TempPar, Forms, TempPrf, NewPar, LitsB, SubPrf),
+  append(LitsA, LitsB, Lits).
+
 linear(Par, Form, delta(@(Par, []), Form, Prf), NewPar, Lits, SubPrf) :- 
   break_delta(@(Par, []), Form, NewForm), 
   Succ is Par + 1, 
@@ -423,7 +394,7 @@ linear(Par, Form, alpha(Form, Prf), NewPar, Lits, SubPrf) :-
   linear(ParA, FormB, SubPrfA, NewPar, LitsB, SubPrf),
   append(LitsA, LitsB, Lits).
 
-linear(Par, ~ ~ Form, dne(Form, Prf), NewPar, Lits, SubPrf) :- 
+linear(Par, ~ ~ Form, dne(~ ~ Form, Prf), NewPar, Lits, SubPrf) :- 
   linear(Par, Form, Prf, NewPar, Lits, SubPrf). 
 
 linear(Par, Lit, Prf, Par, [Lit], Prf) :- 
@@ -519,12 +490,14 @@ resolution(ClaA, ClaB, ClaC, Prf) :-
   close_clause([~ Atom | Lits], ClaP, PrfB).
 
 demodulation(ClaA, ClaB, ClaC, Prf) :- 
-  linear(0, ~ ClaC, Prf, _, Lits, cut(CmpA, PrfA, cut(CmpB, PrfB, sorry))), 
+  linear(0, ~ ClaC, Prf, _, Lits, cut(CmpA, PrfA, cut(CmpB, PrfB, PrfC))), 
   find_pivots(Lits, ClaA, ClaB, LitA, LitB),
   invert(LitA, CmpA),
   invert(LitB, CmpB),
   close_clause([CmpA | Lits], ClaA, PrfA),
-  close_clause([CmpB | Lits], ClaB, PrfB).
+  close_clause([CmpB | Lits], ClaB, PrfB), 
+  linear(_, [~ CmpB, ~ CmpA | Lits], PrfC, _, NewLits, PrfD),
+  close_cc(NewLits, PrfD).
 
 /*
 resolution_first(Path, (FormL | FormR), FormB, beta((FormL | FormR), PrfA, PrfB)) :- 
@@ -568,7 +541,7 @@ resolution_rest(Path, Lit, close) :-
   has_complement(Lit, Path).
 */
 
-tableaux(Forms, Lim, Par, Terms, Mode, Lems, Pth, ~ ~ Form, NewLems, dne(Form, Prf)) :- 
+tableaux(Forms, Lim, Par, Terms, Mode, Lems, Pth, ~ ~ Form, NewLems, dne(~ ~ Form, Prf)) :- 
   tableaux(Forms, Lim, Par, Terms, Mode, Lems, Pth, Form, NewLems, Prf).
 
 tableaux(Forms, Lim, Par, Terms, Mode, Lems, Pth, Form, NewLems, alpha(Form, Prf)) :- 
@@ -617,6 +590,8 @@ tableaux(Forms, Lim, Par, Terms, block, Lems, Pth, Lit, NewLems, Prf) :-
     ) 
   ).
 
+% If in match-mode, the newly focused literal must match with the
+% previously focused literal.
 tableaux(_, _, _, _, match, Lems, [Cmp | _], Lit, Lems, Prf) :- 
   literal(Lit), 
   close_lit([Cmp], Lit, Prf).
@@ -632,13 +607,14 @@ tableaux(Forms, Lim, Prf) :-
   tableaux(Forms, Succ, Prf).
 
 tableaux(Forms, Prf) :- 
-  add_eq_axioms(Forms, NewForms),
-  tableaux(NewForms, 5, Prf).
+  % add_eq_axioms(Forms, NewForms),
+  tableaux(Forms, 5, Prf).
 
 find_lemma(Lems, LitA, Prf) :-
   member((LitB, Prf), Lems), 
   LitA == LitB.
 
+/*
 rels_funs([], [], []).
 
 rels_funs([Form | Forms], Rels, Funs) :- 
@@ -700,28 +676,30 @@ funs(Term, [(Fun, Num) | Funs]) :-
   maplist(funs, Terms, Funss), 
   union(Funss, Funs).
 
-add_eq_axioms(Forms, NewForms) :-
-  rels_funs(Forms, Rels, Funs), 
-  (
-    member(((=), 2), Rels) ->
-    (
-      collect(mk_mono_fun_filter, Funs, MonoFuns),
-      collect(mk_mono_rel_filter, Rels, MonoRels),
-       append(
-         [ 
-           Forms,
-           MonoFuns,
-           MonoRels,
-           [
-             (! 0 : (#(0) = #(0))),
-             (! 0 : ! 1 : ((#(0) = #(1)) => (#(1) = #(0)))), 
-             (! 0 : ! 1 : ! 2 : ((#(0) = #(1)) => ((#(1) = #(2)) => (#(0) = #(2)))))
-           ] 
-         ],
-         NewForms) 
-    ) ; 
-    NewForms = Forms
-  ). 
+% add_eq_axioms(Forms, NewForms) :-
+%   rels_funs(Forms, Rels, Funs), 
+%   (
+%     member(((=), 2), Rels) ->
+%     (
+%       collect(mk_mono_fun_filter, Funs, MonoFuns),
+%       collect(mk_mono_rel_filter, Rels, MonoRels),
+%        append(
+%          [ 
+%            Forms,
+%            MonoFuns,
+%            MonoRels,
+%            [
+%              (! 0 : (#(0) = #(0))),
+%              (! 0 : ! 1 : ((#(0) = #(1)) => (#(1) = #(0)))), 
+%              (! 0 : ! 1 : ! 2 : ((#(0) = #(1)) => ((#(1) = #(2)) => (#(0) = #(2)))))
+%            ] 
+%          ],
+%          NewForms) 
+%     ) ; 
+%     NewForms = Forms
+%   ). 
+
+*/
 
 close_lit(Lits, Lit, close) :-
   member(Cmp, Lits),
@@ -730,7 +708,7 @@ close_lit(Lits, Lit, close) :-
 close_lit(Lits, (TermA = TermB), Prf) :-
   member(Cmp, Lits),
   complementary(Cmp, (TermB = TermA)),
-  prove_symm(TermA, TermB, Prf, close).
+  prove_eq_symm(TermA, close, TermB, Prf, close).
 
 invert(~ Form, Form).
 
@@ -743,12 +721,6 @@ complementary(~ FormA, FormB) :- !,
 complementary(FormA, ~ FormB) :- !,
   unify_with_occurs_check(FormA, FormB).
 
-prove_symm(TermA, TermB, 
-  gamma(TermA, ! 0: ! 1: ((#(0) = #(1)) => (#(1) = #(0))),
-    gamma(TermB, ! 1: ((TermA = #(1)) => (#(1) = TermA)),
-      beta((TermA = TermB) => (TermB = TermA), close, Prf))), 
-  Prf).
-
 undup(Prem, Conc, Prf) :-
   linear(0, ~ Conc, Prf, _, Lits, SubPrf), 
   close_clause(Lits, Prem, SubPrf).
@@ -757,8 +729,6 @@ close_clause(Lits, Cla, Prf) :-
   decom_clause(Cla, Prf, Goals), 
   maplist(close_goal(Lits), Goals). 
 
-elab(([ClaA, ClaB], ClaC, backward_demodulation), val(Prf, ClaC)) :- 
-  demodulation(ClaA, ClaB, ClaC, Prf).
 
 elab(([Prem], Conc, duplicate_literal_removal), val(Prf, Conc)) :- 
   undup(Prem, Conc, Prf).
@@ -768,8 +738,12 @@ elab(([Prem | Prems], Conc, Rul), val(Prf, Conc)) :-
   split(Prem, Prems, Conc, Prf).
 
 elab(([PremA, PremB], Conc, Rul), val(Prf, Conc)) :- 
-  clausal(Rul),
+  resolutional(Rul),
   resolution(PremA, PremB, Conc, Prf).
+
+elab(([ClaA, ClaB], ClaC, Rul), val(Prf, ClaC)) :- 
+  superpositional(Rul),
+  demodulation(ClaA, ClaB, ClaC, Prf).
 
 elab((Prems, Conc, Rul), val(Prf, Conc)) :- 
   simple_fol(Rul),
@@ -787,6 +761,79 @@ has_eq(Exp) :-
   Exp =.. [_ | Args],
   any(has_eq, Args).
 
+stitch([val(Prf, $false)], Prf).
+
+stitch([val(PrfA, Conc) | Prfs], cut(Conc, PrfB, PrfA)) :- 
+  stitch(Prfs, PrfB).
+
+stitch([sat([], Conc, _) | Prfs], def(Conc, Prf)) :- 
+  stitch(Prfs, Prf).
+
+gather_hyps(Bch, def(_, Prf), Hyps) :-
+  gather_hyps(Bch, Prf, Hyps).
+  
+gather_hyps(Bch, cut(Form, PrfA, PrfB), Hyps) :-
+  gather_hyps([Form | Bch], PrfA, HypsA),
+  gather_hyps([~ Form | Bch], PrfB, HypsB),
+  union(HypsA, HypsB, Hyps).
+
+gather_hyps(Bch, dne(~ ~ Form, Prf), Hyps) :-
+  gather_hyps([Form | Bch], Prf, TempHyps),
+  ( member(~ ~ Form, Bch) -> 
+    Hyps = TempHyps ;
+    sort([~ ~ Form | TempHyps], Hyps) ).
+
+gather_hyps(Bch, alpha(Form, Prf), Hyps) :-
+  break_alpha(Form, FormA, FormB), 
+  gather_hyps([FormB, FormA | Bch], Prf, TempHyps),
+  ( member(Form, Bch) -> 
+    Hyps = TempHyps ;
+    sort([Form | TempHyps], Hyps) ).
+
+gather_hyps(Bch, beta(Form, PrfA, PrfB), Hyps) :-
+  break_beta(Form, FormA, FormB), 
+  gather_hyps([FormA | Bch], PrfA, HypsA),
+  gather_hyps([FormB | Bch], PrfB, HypsB),
+  union(HypsA, HypsB, TempHyps),
+  ( member(Form, Bch) -> 
+    Hyps = TempHyps ;
+    sort([Form | TempHyps], Hyps) ).
+
+gather_hyps(Bch, gamma(Term, Form, Prf), Hyps) :-
+  break_gamma(Term, Form, SubForm), 
+  gather_hyps([SubForm | Bch], Prf, TempHyps),
+  ( member(Form, Bch) -> 
+    Hyps = TempHyps ;
+    sort([Form | TempHyps], Hyps) ).
+
+gather_hyps(Bch, delta(Term, Form, Prf), Hyps) :-
+  break_delta(Term, Form, SubForm), 
+  gather_hyps([SubForm | Bch], Prf, TempHyps),
+  ( member(Form, Bch) -> 
+    Hyps = TempHyps ;
+    sort([Form | TempHyps], Hyps) ).
+
+gather_hyps(_, close, []).
+
+% DNE
+% Alpha
+% Beta
+% Gamma
+% Delta
+% Cut
+% Close
+% Def
+
+number_prf(Bch, def(Def, VerbPrf), def(Def, Prf)) :- 
+  number_prf([Def | Bch], VerbPrf, Prf). 
+
+graft(Prfs, (Hyps, VerbPrf)) :- 
+  stitch(Prfs, VerbPrf), 
+  gather_hyps([], VerbPrf, Hyps).
+  % number_prf(Hyps, VerbPrf, Prf).
+
+
+
 prove(Source) :-
   dynamic(fof/4),
   retractall(fof(_, _, _, _)),
@@ -794,10 +841,11 @@ prove(Source) :-
   findall((Just, Conc), fof(_, _, Conc, Just), Steps),
   collect(init_goal, Steps, Goals),
   maplist(elab, Goals, Prfs),
-  list_string(Prfs, Str),
-  % maplist(check([]), Prfs),
-  % write("CHECK SUCCESS!!!").
-  write_file("output", Str).
+  graft(Prfs, Prf), 
+
+
+  % list_string(Prfs, Str),
+  write_file("output", Prf).
 
 verify(Source) :-
   retractall(theorem(_, _)),

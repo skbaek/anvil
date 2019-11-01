@@ -8,9 +8,6 @@
 :- op( 500, fy, ?).    % existential quantifier
 :- op( 500, xfy, :).
 
-unneg(~ Atom, Atom) :- !.
-unneg(Atom, Atom).
-
 all_sub_terms(Term, Terms) :-
   findall(SubTerm, sub_term(SubTerm, Term), SubTerms),
   sort(SubTerms, Terms).
@@ -98,21 +95,16 @@ et_eq(TermA, TermB, bridge(TreeL, (TermL, PrfLR, TermR), TreeR), PrfAB) :-
     et_eq(TermA, TermB, TreeR, PrfAB) ) ; 
   ( et_eq(TermA, TermL, TreeL, PrfL), 
     et_eq(TermR, TermB, TreeR, PrfR), 
-    prove_eq_trans([TermA, TermL, TermR, TermB], [PrfL, PrfLR, PrfR], PrfAB) ) ;
+    prove_eqs_trans([TermA, TermL, TermR, TermB], [PrfL, PrfLR, PrfR], TermB, PrfAB) ) ;
   ( et_eq(TermB, TermL, TreeL, PrfL), 
     et_eq(TermR, TermA, TreeR, PrfR), 
-    prove_eq_trans([TermB, TermL, TermR, TermA], [PrfL, PrfLR, PrfR], PrfAB) ).
+    prove_eqs_trans([TermB, TermL, TermR, TermA], [PrfL, PrfLR, PrfR], TermA, PrfAB) ).
 
-prove_eq_trans([_, _], [Prf], Prf). 
+prove_eqs_trans([_, TermB], [Prf], TermB, Prf). 
 
-prove_eq_trans([TermA, TermB | Terms], [PrfAB | Prfs], 
-  gamma(TermA, (! [X, Y, Z] : ((X = Y) => ((Y = Z) => (X = Z)))), 
-    gamma(TermB, (! [Y, Z] : ((TermA = Y) => ((Y = Z) => (TermA = Z)))),
-      gamma(TermC, (! [Z] : ((TermA = TermB) => ((TermB = Z) => (TermA = Z)))),
-        beta((TermA = TermB) => ((TermB = TermC) => (TermA = TermC)), PrfAB,
-          beta((TermB = TermC) => (TermA = TermC), PrfBC, close)))))) :-
-  last(Terms, TermC),
-  prove_eq_trans([TermB | Terms], Prfs, PrfBC).
+prove_eqs_trans([TermA, TermB | Terms], [PrfAB | Prfs], TermC, Prf) :-
+  prove_eqs_trans([TermB | Terms], Prfs, TermC, PrfBC), 
+  prove_eq_trans(TermA, PrfAB, TermB, PrfBC, TermC, Prf, close).
 
 cc(EqHyps, ECs, NewECs) :- 
   foldl(propagate, EqHyps, ECs, NewECs).
@@ -141,23 +133,6 @@ eqv_mod_ecs(ECs, AtomA, AtomB) :-
   AtomB =.. [Rel | TermsB],
   maplist(eq_mod_ecs(ECs), TermsA, TermsB).
 
-order_lits(AtomA, ~ AtomB, AtomA, AtomB) :-
-  not(AtomA = ~ _).
-
-order_lits(~ AtomA, AtomB, AtomB, AtomA) :-
-  not(AtomB = ~ _).
-
-ecs_lit_lit_prf(ECs, LitA, LitB, Prf) :- 
-  order_lits(LitA, LitB, AtomA, AtomB),
-  eqv_mod_ecs(ECs, AtomA, AtomB), 
-  mono_imp(ECs, AtomA, AtomB, Prf).
-
-ecs_lits_lit_prf(ECs, Lits, LitA, Prf) :- 
-  member(LitB, Lits),
-  order_lits(LitA, LitB, AtomA, AtomB),
-  eqv_mod_ecs(ECs, AtomA, AtomB), 
-  mono_imp(ECs, AtomA, AtomB, Prf).
-
 ecs_lits_prf(ECs, Lits, Prf) :- 
   member(~ (TermA = TermB), Lits),
   eq_mod_ecs(ECs, TermA, TermB),
@@ -170,14 +145,47 @@ ecs_lits_prf(ECs, Lits, Prf) :-
   eqv_mod_ecs(ECs, AtomA, AtomB), 
   mono_imp(ECs, AtomA, AtomB, Prf).
 
-
 lits_ecs(Lits, ECs) :- 
   lits_sub_terms(Lits, Terms),
   init_ecs(Terms, InitECs), 
   collect(mk_eqhyp, Lits, EqHyps),
   cc(EqHyps, InitECs, ECs).
 
-contra(Lits, Prf) :- 
+mk_mono_args(0, [], []).
+
+mk_mono_args(Num, [#(NumA) | VarsA], [#(NumB) | VarsB]) :-
+  NumA is (Num * 2) - 1, 
+  NumB is (Num * 2) - 2, 
+  Pred is Num - 1,
+  mk_mono_args(Pred, VarsA, VarsB).
+
+mk_mono_eq(Num, Fun, TermA = TermB) :- 
+  mk_mono_args(Num, VarsA, VarsB),
+  TermA =.. [Fun | VarsA],
+  TermB =.. [Fun | VarsB].
+
+mk_mono_imp(Num, Rel, AtomA => AtomB) :- 
+  mk_mono_args(Num, VarsA, VarsB),
+  AtomA =.. [Rel | VarsA],
+  AtomB =.. [Rel | VarsB], !.
+
+mk_mono_fun(Num, Fun, Mono) :- 
+  mk_mono_eq(Num, Fun, Eq), 
+  mk_mono(Num, Eq, Mono), !.
+
+mk_mono_rel(Num, Rel, Mono) :- 
+  mk_mono_imp(Num, Rel, Imp), 
+  mk_mono(Num, Imp, Mono).
+
+mk_mono(0, Cons, Cons).
+
+mk_mono(Num, Cons, ! NumA : ! NumB : ((#(NumA) = #(NumB)) => Mono)) :-
+  NumA is (Num * 2) - 1, 
+  NumB is (Num * 2) - 2, 
+  decr_if_pos(Num, Pred), 
+  mk_mono(Pred, Cons, Mono), !. 
+
+close_cc(Lits, Prf) :- 
   lits_sub_terms(Lits, Terms),
   init_ecs(Terms, InitECs), 
   collect(mk_eqhyp, Lits, EqHyps),
