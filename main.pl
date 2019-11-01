@@ -1,4 +1,4 @@
-:- [misc].
+:- [basic].
 
 :- op(1130, xfy, <=>). % equivalence
 :- op(1110, xfy, =>).  % implication
@@ -73,56 +73,6 @@ index_form_string(Num, Frm, Str) :-
 %   branch_string(Bch, BchStr),
 %   strings_concat(["(", LthStr, " more goals)\n\n", BchStr], Str).
   
-/* Formula decomposition */
-
-break_alpha(FrmA & FrmB, FrmA, FrmB).
-break_alpha(~ (FrmA | FrmB), ~ FrmA, ~ FrmB).
-break_alpha(~ (FrmA => FrmB), FrmA, ~ FrmB).
-break_alpha(FrmA <=> FrmB, FrmA => FrmB, FrmB => FrmA).
-alpha(Form) :- break_alpha(Form, _, _).
-
-break_beta(~ (FrmA & FrmB), ~ FrmA, ~ FrmB).
-break_beta(FrmA | FrmB, FrmA, FrmB).
-break_beta(FrmA => FrmB, ~ FrmA, FrmB).
-break_beta(~ (FrmA <=> FrmB), ~ (FrmA => FrmB), ~(FrmB => FrmA)).
-beta(Form) :- break_beta(Form, _, _).
-
-break_gamma(Term, ! Num : Form, NewForm) :- !, 
-  substitute(Num, Term, Form, NewForm).
-
-break_gamma(Term, ~ (? Num : Form), ~ NewForm) :- 
-  substitute(Num, Term, Form, NewForm).
-
-gamma(! _ : _).
-gamma(~ (? _ : _)).
-
-break_delta(Term, (? Var : Form), NewForm) :- !, 
-  substitute(Var, Term, Form, NewForm).
-
-break_delta(Term, ~ (! Var : Form), ~ NewForm) :- 
-  substitute(Var, Term, Form, NewForm).
-
-delta(? _ : _).
-delta(~ (! _ : _)).
-
-substitute(_, _, Var, Var) :- 
-  var(Var). 
-
-substitute(NumA, Term, Exp, NewTerm) :- 
-  not(var(Exp)), 
-  Exp = #(NumB),
-  ( NumA = NumB -> 
-    NewTerm = Term;
-    NewTerm = #(NumB) ).
-
-substitute(Num, Term, Exp, NewExp) :- 
-  not(var(Exp)), 
-  not(Exp = #(_)), 
-  not(Exp = @(_)), 
-  Exp =.. [Symb | Terms],  
-  maplist(substitute(Num, Term), Terms, NewTerms),
-  NewExp =.. [Symb | NewTerms].
-
 verify([~ ~ Frm | Bch], dne(Prf)) :-
   verify([Frm, ~ ~ Frm | Bch], Prf).
 
