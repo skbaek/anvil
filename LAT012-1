@@ -1,0 +1,81 @@
+% Refutation found. Thanks to Tanya!
+% SZS status Unsatisfiable for LAT012-1
+% SZS output start Proof for LAT012-1
+fof(f1,axiom,(
+  ( ! [X2,X0,X1] : (join(X0,meet(X1,meet(X0,X2))) = X0) )),
+  file('Problems/LAT/LAT012-1.p',unknown)).
+fof(f2,axiom,(
+  ( ! [X2,X0,X1] : (meet(X0,join(X1,join(X0,X2))) = X0) )),
+  file('Problems/LAT/LAT012-1.p',unknown)).
+fof(f3,axiom,(
+  ( ! [X2,X0,X1] : (join(join(meet(X0,X1),meet(X1,X2)),X1) = X1) )),
+  file('Problems/LAT/LAT012-1.p',unknown)).
+fof(f4,axiom,(
+  ( ! [X2,X0,X1] : (meet(meet(join(X0,X1),join(X1,X2)),X1) = X1) )),
+  file('Problems/LAT/LAT012-1.p',unknown)).
+fof(f5,axiom,(
+  meet(b,a) \= meet(a,b)),
+  file('Problems/LAT/LAT012-1.p',unknown)).
+fof(f6,plain,(
+  ( ! [X0,X3] : (meet(X0,join(X3,X0)) = X0) )),
+  inference(superposition,[],[f2,f1])).
+fof(f7,plain,(
+  ( ! [X0,X3] : (join(X0,meet(X3,X0)) = X0) )),
+  inference(superposition,[],[f1,f2])).
+fof(f10,plain,(
+  ( ! [X0,X1] : (join(meet(X0,X1),X1) = X1) )),
+  inference(superposition,[],[f3,f1])).
+fof(f24,plain,(
+  ( ! [X2,X0,X3,X1] : (meet(join(X0,X1),join(X1,X2)) = join(join(meet(X3,meet(join(X0,X1),join(X1,X2))),X1),meet(join(X0,X1),join(X1,X2)))) )),
+  inference(superposition,[],[f3,f4])).
+fof(f27,plain,(
+  ( ! [X14,X13] : (join(X13,meet(X13,X14)) = X13) )),
+  inference(superposition,[],[f1,f4])).
+fof(f53,plain,(
+  ( ! [X6,X7,X5] : (meet(X6,X5) = meet(meet(X5,join(meet(X6,X5),X7)),meet(X6,X5))) )),
+  inference(superposition,[],[f4,f7])).
+fof(f58,plain,(
+  ( ! [X4,X3] : (join(X4,X3) = join(X3,join(X4,X3))) )),
+  inference(superposition,[],[f10,f6])).
+fof(f265,plain,(
+  ( ! [X2,X0,X1] : (join(meet(X1,meet(X0,X2)),X0) = X0) )),
+  inference(superposition,[],[f58,f1])).
+fof(f267,plain,(
+  ( ! [X6,X5] : (join(meet(X5,X6),X5) = X5) )),
+  inference(superposition,[],[f58,f27])).
+fof(f468,plain,(
+  ( ! [X6,X8,X7,X5] : (meet(X5,join(meet(X6,X5),X7)) = join(join(meet(X8,meet(X5,join(meet(X6,X5),X7))),meet(X6,X5)),meet(X5,join(meet(X6,X5),X7)))) )),
+  inference(superposition,[],[f24,f7])).
+fof(f1598,plain,(
+  ( ! [X0,X1] : (meet(X0,X1) = meet(meet(X1,X0),meet(X0,X1))) )),
+  inference(superposition,[],[f53,f267])).
+fof(f13874,plain,(
+  ( ! [X2,X0,X1] : (meet(X1,X0) = join(join(meet(X2,meet(X1,X0)),meet(X0,X1)),meet(X1,X0))) )),
+  inference(superposition,[],[f468,f267])).
+fof(f20237,plain,(
+  ( ! [X165,X164] : (meet(X164,X165) = join(meet(X164,X165),meet(X165,X164))) )),
+  inference(superposition,[],[f27,f1598])).
+fof(f20272,plain,(
+  ( ! [X300,X301,X299] : (meet(X299,X300) = join(meet(X301,meet(X300,X299)),meet(X299,X300))) )),
+  inference(superposition,[],[f265,f1598])).
+fof(f20397,plain,(
+  ( ! [X0,X1] : (meet(X1,X0) = join(meet(X0,X1),meet(X1,X0))) )),
+  inference(backward_demodulation,[],[f20272,f13874])).
+fof(f54905,plain,(
+  ( ! [X2,X3] : (meet(X2,X3) = meet(X3,X2)) )),
+  inference(superposition,[],[f20237,f20397])).
+fof(f58829,plain,(
+  meet(b,a) \= meet(b,a)),
+  inference(superposition,[],[f5,f54905])).
+fof(f58830,plain,(
+  $false),
+  inference(trivial_inequality_removal,[],[f58829])).
+% SZS output end Proof for LAT012-1
+% ------------------------------
+% Version: Vampire 4.2.2 (commit e1949dd on 2017-12-14 18:39:21 +0000)
+% Termination reason: Refutation
+
+% Memory used [KB]: 87248
+% Time elapsed: 2.148 s
+% ------------------------------
+% ------------------------------

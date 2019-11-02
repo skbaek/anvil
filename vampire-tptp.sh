@@ -1,3 +1,6 @@
-prf=$(vampire --proof tptp $1)
+dir=$PWD
+cd ~/projects/TPTP
+prf=$(vampire --proof tptp "Problems/"${1:0:3}/$1)
 neprf=${prf//!=/\\=}
+cd $dir
 echo "$neprf" > ${1%??}

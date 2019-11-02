@@ -38,6 +38,10 @@ break_delta(Term, ~ (! Var : Form), ~ NewForm) :-
 delta(? _ : _).
 delta(~ (! _ : _)).
 
+skolemize(SkmFun, (! NumA : ? NumB : Form), (! NumA : NewForm)) :- 
+  SkmTerm =.. [SkmFun, #(NumA)],
+  substitute(NumB, SkmTerm, Form, NewForm).
+
 substitute(_, _, Var, Var) :- 
   var(Var). 
 
@@ -66,8 +70,8 @@ mark(Num) :-
   strings_concat(["Tracing ", NumStr, "\n"], Msg),
   write(Msg).
 
-write_break(Trm) :-
-  write(Trm),
+write_break(Term) :-
+  write(Term),
   write("\n").
 
 strings_concat([], "").
@@ -167,10 +171,14 @@ any(Goal, [Elem | _]) :-
 any(Goal, [_ | List]) :-
   any(Goal, List).
 
-list_string(List, Str) :-
+list_br_str(List, Str) :-
   maplist(term_string, List, Strs), 
   strings_concat_with("\n\n", Strs, Str).
   
+list_str(List, Str) :-
+  maplist(term_string, List, Strs), 
+  strings_concat_with(", ", Strs, Str).
+
 last([Elem], Elem). 
 last([_ | List], Elem) :- last(List, Elem). 
 
@@ -178,18 +186,94 @@ decr_if_pos(Num, Pred) :-
   0 < Num,
   Pred is Num - 1.
 
+prove_eq_refl(Term, gamma(Term, ! 0: (#(0) = #(0)), Prf), Prf).
+
+prove_eq_refl(Term, Prf) :- 
+  prove_eq_refl(Term, Prf, close).
+
 prove_eq_symm(TermA, PrfAB, TermB, 
   gamma(TermA, ! 0: ! 1: ((#(0) = #(1)) => (#(1) = #(0))),
     gamma(TermB, ! 1: ((TermA = #(1)) => (#(1) = TermA)),
       beta((TermA = TermB) => (TermB = TermA), PrfAB, Prf))), 
   Prf).
 
+prove_eq_symm(TermA, PrfAB, TermB, PrfBA) :- 
+  prove_eq_symm(TermA, PrfAB, TermB, PrfBA, close).
+
 prove_eq_trans(TermA, PrfAB, TermB, PrfBC, TermC,  
-  gamma(TermA, (! [X, Y, Z] : ((X = Y) => ((Y = Z) => (X = Z)))), 
-    gamma(TermB, (! [Y, Z] : ((TermA = Y) => ((Y = Z) => (TermA = Z)))),
-      gamma(TermC, (! [Z] : ((TermA = TermB) => ((TermB = Z) => (TermA = Z)))),
+  gamma(TermA, (! 0: ! 1: ! 2 : ((#(0) = #(1)) => ((#(1) = #(2)) => (#(0) = #(2))))), 
+    gamma(TermB, (! 1: ! 2: ((TermA = #(1)) => ((#(1) = #(2)) => (TermA = #(2))))),
+      gamma(TermC, (! 2: ((TermA = TermB) => ((TermB = #(2)) => (TermA = #(2))))),
         beta((TermA = TermB) => ((TermB = TermC) => (TermA = TermC)), PrfAB,
           beta((TermB = TermC) => (TermA = TermC), PrfBC, Prf))))), Prf).
 
 unneg(~ Atom, Atom) :- !.
 unneg(Atom, Atom).
+
+write_file_punct(Filename, Term) :- 
+  term_string(Term, TermStr),
+  string_concat(TermStr, ".", Str),
+  write_file(Filename, Str).
+
+propatom(Atom) :- 
+  not(member(Atom, 
+    [ (! _ : _), (? _ : _), (~ _), 
+      (_ | _), (_ & _), (_ => _), (_ <=> _) ])).
+
+aug_type(! 0: (#(0) = #(0)), refl_eq).
+
+aug_type((! 0: ! 1: ((#(0) = #(1)) => (#(1) = #(0)))), symm_eq).
+
+aug_type((! 0: ! 1: ! 2: ((#(0) = #(1)) => ((#(1) = #(2)) => (#(0) = #(2))))), trans_eq).
+
+aug_type(Form, mono_fun) :- 
+  is_mono_fun(Form).
+
+aug_type(Form, mono_rel) :- 
+  is_mono_rel(Form).
+
+mono_args_args_cons(! NumA : ! NumB : (#(NumA) = #(NumB) => Form), [#(NumA) | ArgsA], [#(NumB) | ArgsB], Cons) :- 
+  mono_args_args_cons(Form, ArgsA, ArgsB, Cons).
+
+mono_args_args_cons(Form, [], [], Form).
+
+is_mono_rel(Form) :- 
+  mono_args_args_cons(Form, ArgsA, ArgsB, AtomA => AtomB), !, 
+  AtomA =.. [Rel | ArgsA],
+  AtomB =.. [Rel | ArgsB].
+
+is_mono_fun(Form) :- 
+  mono_args_args_cons(Form, ArgsA, ArgsB, TermA = TermB), !, 
+  TermA =.. [Fun | ArgsA],
+  TermB =.. [Fun | ArgsB].
+
+analyze_forall_tptp(! VarsA : Form, Vars, Body) :-
+  analyze_forall_tptp(Form, VarsB, Body),
+  append(VarsA, VarsB, Vars).
+
+analyze_forall_tptp(Form, [], Form).
+
+% aoc_skolem_fun_tptp(+Form, -Skm).
+aoc_skolem_fun_tptp(Form, Skm) :-
+  analyze_forall_tptp(Form, VarsA, (? [VarA] : FormA) => FormB), 
+  unifiable(FormA, FormB, [VarB = Term]), 
+  VarA == VarB, 
+  Term =.. [Skm | VarsB], 
+  VarsA == VarsB, !.
+
+analyze_forall(! Num : Form, [Num | Nums], Body) :-
+  analyze_forall(Form, Nums, Body).
+
+analyze_forall(Form, [], Form).
+
+mk_var(Num, #(Num)).
+
+% aoc_skolem_fun(+Form, +Skm).
+aoc_skolem_fun(Form, Skm) :-
+  analyze_forall(Form, Nums, (? Num : FormA) => FormB), 
+  maplist(mk_var, Nums, Vars), 
+  SkmTrm =.. [Skm | Vars], 
+  substitute(Num, SkmTrm, FormA, FormB).
+
+
+

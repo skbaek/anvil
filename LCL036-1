@@ -1,0 +1,183 @@
+% Refutation found. Thanks to Tanya!
+% SZS status Unsatisfiable for LCL036-1
+% SZS output start Proof for LCL036-1
+fof(f1,axiom,(
+  ( ! [X0,X1] : (~is_a_theorem(implies(X0,X1)) | ~is_a_theorem(X0) | is_a_theorem(X1)) )),
+  file('Problems/LCL/LCL036-1.p',unknown)).
+fof(f2,axiom,(
+  ( ! [X4,X2,X0,X3,X1] : (is_a_theorem(implies(implies(implies(implies(implies(X0,X1),implies(X2,falsehood)),X3),X4),implies(implies(X4,X0),implies(X2,X0))))) )),
+  file('Problems/LCL/LCL036-1.p',unknown)).
+fof(f3,axiom,(
+  ~is_a_theorem(implies(implies(implies(a,falsehood),falsehood),a))),
+  file('Problems/LCL/LCL036-1.p',unknown)).
+fof(f4,plain,(
+  ( ! [X4,X2,X0,X3,X1] : (~is_a_theorem(implies(implies(implies(implies(X0,X1),implies(X2,falsehood)),X3),X4)) | is_a_theorem(implies(implies(X4,X0),implies(X2,X0)))) )),
+  inference(resolution,[],[f2,f1])).
+fof(f5,plain,(
+  ( ! [X4,X2,X0,X3,X1] : (is_a_theorem(implies(implies(implies(implies(X0,X1),implies(X2,X1)),implies(X1,X3)),implies(X4,implies(X1,X3))))) )),
+  inference(resolution,[],[f4,f2])).
+fof(f6,plain,(
+  ( ! [X2,X0,X3,X1] : (is_a_theorem(implies(implies(implies(X0,implies(falsehood,X1)),X2),implies(X3,X2)))) )),
+  inference(resolution,[],[f5,f4])).
+fof(f7,plain,(
+  ( ! [X6,X4,X8,X7,X5] : (~is_a_theorem(implies(implies(implies(X4,X5),implies(X6,X5)),implies(X5,X7))) | is_a_theorem(implies(X8,implies(X5,X7)))) )),
+  inference(resolution,[],[f5,f1])).
+fof(f8,plain,(
+  ( ! [X2,X0,X1] : (is_a_theorem(implies(implies(implies(X0,X1),X2),implies(falsehood,X2)))) )),
+  inference(resolution,[],[f6,f4])).
+fof(f9,plain,(
+  ( ! [X6,X4,X5,X3] : (~is_a_theorem(implies(implies(X3,implies(falsehood,X4)),X5)) | is_a_theorem(implies(X6,X5))) )),
+  inference(resolution,[],[f6,f1])).
+fof(f10,plain,(
+  ( ! [X2,X0,X1] : (is_a_theorem(implies(implies(implies(falsehood,X0),X1),implies(X2,X1)))) )),
+  inference(resolution,[],[f8,f4])).
+fof(f22,plain,(
+  spl0_2 <=> ! [X5] : ~is_a_theorem(X5)),
+  introduced(avatar_definition,[new_symbols(naming,[spl0_2])])).
+fof(f23,plain,(
+  ( ! [X5] : (~is_a_theorem(X5)) ) | ~spl0_2),
+  inference(avatar_component_clause,[],[f22])).
+fof(f25,plain,(
+  ( ! [X2,X0,X3,X1] : (is_a_theorem(implies(X0,implies(implies(implies(falsehood,X1),X2),implies(X3,X2))))) )),
+  inference(resolution,[],[f9,f2])).
+fof(f28,plain,(
+  ( ! [X10,X11] : (is_a_theorem(implies(X10,implies(falsehood,implies(falsehood,X11))))) )),
+  inference(resolution,[],[f9,f8])).
+fof(f36,plain,(
+  $false | ~spl0_2),
+  inference(subsumption_resolution,[],[f28,f23])).
+fof(f37,plain,(
+  ~spl0_2),
+  inference(avatar_contradiction_clause,[],[f36])).
+fof(f81,plain,(
+  ( ! [X2,X0,X1] : (is_a_theorem(implies(X0,implies(X1,implies(X2,X1))))) )),
+  inference(resolution,[],[f10,f7])).
+fof(f97,plain,(
+  ( ! [X6,X4,X5,X3] : (is_a_theorem(implies(implies(implies(X3,implies(X4,X3)),X5),implies(X6,X5)))) )),
+  inference(resolution,[],[f81,f4])).
+fof(f100,plain,(
+  ( ! [X14,X12,X13] : (~is_a_theorem(X12) | is_a_theorem(implies(X13,implies(X14,X13)))) )),
+  inference(resolution,[],[f81,f1])).
+fof(f102,plain,(
+  spl0_14 <=> ! [X13,X14] : is_a_theorem(implies(X13,implies(X14,X13)))),
+  introduced(avatar_definition,[new_symbols(naming,[spl0_14])])).
+fof(f103,plain,(
+  ( ! [X14,X13] : (is_a_theorem(implies(X13,implies(X14,X13)))) ) | ~spl0_14),
+  inference(avatar_component_clause,[],[f102])).
+fof(f104,plain,(
+  spl0_14 | spl0_2),
+  inference(avatar_split_clause,[],[f100,f22,f102])).
+fof(f110,plain,(
+  ( ! [X6,X4,X8,X7,X5] : (is_a_theorem(implies(implies(implies(X4,implies(implies(implies(X5,X6),implies(X7,falsehood)),X8)),X5),implies(X7,X5)))) ) | ~spl0_14),
+  inference(resolution,[],[f103,f4])).
+fof(f115,plain,(
+  ( ! [X6,X4,X8,X7,X5] : (is_a_theorem(implies(implies(implies(implies(implies(falsehood,X4),X5),implies(X6,X5)),X7),implies(X8,X7)))) )),
+  inference(resolution,[],[f25,f4])).
+fof(f148,plain,(
+  ( ! [X14,X17,X15,X13,X16] : (~is_a_theorem(implies(implies(implies(implies(falsehood,X13),X14),implies(X15,X14)),X16)) | is_a_theorem(implies(X17,X16))) )),
+  inference(resolution,[],[f115,f1])).
+fof(f226,plain,(
+  ( ! [X24,X23,X25,X22] : (~is_a_theorem(implies(implies(X22,implies(X23,X22)),X24)) | is_a_theorem(implies(X25,X24))) )),
+  inference(resolution,[],[f97,f1])).
+fof(f452,plain,(
+  ( ! [X2,X0,X3,X1] : (is_a_theorem(implies(implies(implies(X0,X1),X2),implies(implies(implies(X1,X3),implies(X0,falsehood)),X2)))) ) | ~spl0_14),
+  inference(resolution,[],[f110,f4])).
+fof(f456,plain,(
+  ( ! [X19,X17,X15,X18,X16] : (~is_a_theorem(implies(implies(X15,implies(implies(implies(X16,X17),implies(X18,falsehood)),X19)),X16)) | is_a_theorem(implies(X18,X16))) ) | ~spl0_14),
+  inference(resolution,[],[f110,f1])).
+fof(f915,plain,(
+  ( ! [X12,X10,X8,X11,X9] : (is_a_theorem(implies(X8,implies(implies(implies(X9,X10),implies(implies(falsehood,X11),falsehood)),implies(X12,X9))))) ) | ~spl0_14),
+  inference(resolution,[],[f452,f148])).
+fof(f916,plain,(
+  ( ! [X14,X17,X15,X13,X16] : (is_a_theorem(implies(implies(implies(implies(implies(implies(X13,falsehood),X14),implies(implies(X15,X16),falsehood)),X17),X15),implies(X13,X15)))) ) | ~spl0_14),
+  inference(resolution,[],[f452,f4])).
+fof(f919,plain,(
+  ( ! [X30,X33,X31,X29,X32] : (is_a_theorem(implies(X29,implies(implies(implies(X30,X31),implies(X32,falsehood)),implies(X33,implies(X32,X30)))))) ) | ~spl0_14),
+  inference(resolution,[],[f452,f226])).
+fof(f926,plain,(
+  ( ! [X68,X66,X69,X67] : (is_a_theorem(implies(implies(implies(X67,X69),implies(X66,falsehood)),X68)) | ~is_a_theorem(implies(implies(X66,X67),X68))) ) | ~spl0_14),
+  inference(resolution,[],[f452,f1])).
+fof(f1615,plain,(
+  ( ! [X142,X140,X138,X141,X139] : (~is_a_theorem(X138) | is_a_theorem(implies(implies(implies(X139,X140),implies(implies(falsehood,X141),falsehood)),implies(X142,X139)))) ) | ~spl0_14),
+  inference(resolution,[],[f915,f1])).
+fof(f1617,plain,(
+  spl0_20 <=> ! [X139,X141,X140,X142] : is_a_theorem(implies(implies(implies(X139,X140),implies(implies(falsehood,X141),falsehood)),implies(X142,X139)))),
+  introduced(avatar_definition,[new_symbols(naming,[spl0_20])])).
+fof(f1618,plain,(
+  ( ! [X142,X140,X141,X139] : (is_a_theorem(implies(implies(implies(X139,X140),implies(implies(falsehood,X141),falsehood)),implies(X142,X139)))) ) | ~spl0_20),
+  inference(avatar_component_clause,[],[f1617])).
+fof(f1619,plain,(
+  spl0_20 | spl0_2 | ~spl0_14),
+  inference(avatar_split_clause,[],[f1615,f102,f22,f1617])).
+fof(f1750,plain,(
+  ( ! [X142,X140,X138,X141,X139] : (~is_a_theorem(X138) | is_a_theorem(implies(implies(implies(X139,X140),implies(X141,falsehood)),implies(X142,implies(X141,X139))))) ) | ~spl0_14),
+  inference(resolution,[],[f919,f1])).
+fof(f1782,plain,(
+  ( ! [X21,X19,X20,X18] : (~is_a_theorem(implies(implies(implies(implies(X18,X19),implies(X20,falsehood)),X21),X18)) | is_a_theorem(implies(X20,X18))) ) | ~spl0_14),
+  inference(resolution,[],[f926,f456])).
+fof(f1791,plain,(
+  ( ! [X61,X59,X60,X58] : (~is_a_theorem(implies(implies(X59,X61),implies(X58,falsehood))) | ~is_a_theorem(implies(implies(X58,X59),X60)) | is_a_theorem(X60)) ) | ~spl0_14),
+  inference(resolution,[],[f926,f1])).
+fof(f1979,plain,(
+  spl0_62 <=> ! [X139,X141,X140,X142] : is_a_theorem(implies(implies(implies(X139,X140),implies(X141,falsehood)),implies(X142,implies(X141,X139))))),
+  introduced(avatar_definition,[new_symbols(naming,[spl0_62])])).
+fof(f1980,plain,(
+  ( ! [X142,X140,X141,X139] : (is_a_theorem(implies(implies(implies(X139,X140),implies(X141,falsehood)),implies(X142,implies(X141,X139))))) ) | ~spl0_62),
+  inference(avatar_component_clause,[],[f1979])).
+fof(f1981,plain,(
+  spl0_62 | spl0_2 | ~spl0_14),
+  inference(avatar_split_clause,[],[f1750,f102,f22,f1979])).
+fof(f2012,plain,(
+  ( ! [X6,X4,X5,X3] : (is_a_theorem(implies(implies(implies(X3,X4),implies(implies(X3,falsehood),X5)),implies(X6,implies(implies(X3,falsehood),X5))))) ) | ~spl0_14),
+  inference(resolution,[],[f916,f4])).
+fof(f2257,plain,(
+  ( ! [X6,X8,X7,X5] : (is_a_theorem(implies(implies(implies(X5,implies(X6,X7)),X6),implies(X8,X6)))) ) | ~spl0_20),
+  inference(resolution,[],[f1618,f4])).
+fof(f2267,plain,(
+  ( ! [X2,X0,X1] : (is_a_theorem(implies(implies(implies(X0,X1),X2),implies(X1,X2)))) ) | ~spl0_20),
+  inference(resolution,[],[f2257,f4])).
+fof(f2295,plain,(
+  ( ! [X54,X56,X55,X53] : (~is_a_theorem(implies(implies(X53,X54),implies(X55,falsehood))) | is_a_theorem(implies(X56,implies(X55,X53)))) ) | ~spl0_62),
+  inference(resolution,[],[f1980,f1])).
+fof(f2977,plain,(
+  ( ! [X26,X25] : (is_a_theorem(implies(X25,implies(implies(X25,falsehood),X26)))) ) | (~spl0_14 | ~spl0_20)),
+  inference(resolution,[],[f1782,f2267])).
+fof(f3073,plain,(
+  ( ! [X54,X56,X55] : (~is_a_theorem(implies(implies(X54,implies(X55,X54)),X56)) | is_a_theorem(X56)) ) | (~spl0_14 | ~spl0_20)),
+  inference(resolution,[],[f1791,f2267])).
+fof(f3089,plain,(
+  ( ! [X138,X136,X137] : (~is_a_theorem(implies(implies(X136,implies(falsehood,X137)),X138)) | is_a_theorem(X138)) ) | (~spl0_14 | ~spl0_20)),
+  inference(resolution,[],[f1791,f1618])).
+fof(f4503,plain,(
+  ( ! [X33,X31,X32] : (is_a_theorem(implies(X31,implies(implies(X32,falsehood),implies(X32,X33))))) ) | (~spl0_14 | ~spl0_20)),
+  inference(resolution,[],[f2012,f3073])).
+fof(f4706,plain,(
+  ( ! [X45,X46] : (is_a_theorem(implies(implies(X45,falsehood),implies(X45,X46)))) ) | (~spl0_14 | ~spl0_20)),
+  inference(resolution,[],[f4503,f3089])).
+fof(f4838,plain,(
+  ( ! [X8,X7] : (~is_a_theorem(implies(implies(X7,X7),X8)) | is_a_theorem(X8)) ) | (~spl0_14 | ~spl0_20)),
+  inference(resolution,[],[f4706,f1791])).
+fof(f9366,plain,(
+  ( ! [X196,X194,X195] : (is_a_theorem(implies(X194,implies(implies(implies(X195,X196),falsehood),X195)))) ) | (~spl0_14 | ~spl0_20 | ~spl0_62)),
+  inference(resolution,[],[f2295,f2977])).
+fof(f9415,plain,(
+  ( ! [X103,X104] : (is_a_theorem(implies(implies(implies(X103,X104),falsehood),X103))) ) | (~spl0_14 | ~spl0_20 | ~spl0_62)),
+  inference(resolution,[],[f9366,f4838])).
+fof(f9612,plain,(
+  $false | (~spl0_14 | ~spl0_20 | ~spl0_62)),
+  inference(resolution,[],[f9415,f3])).
+fof(f9635,plain,(
+  ~spl0_14 | ~spl0_20 | ~spl0_62),
+  inference(avatar_contradiction_clause,[],[f9612])).
+fof(f9636,plain,(
+  $false),
+  inference(avatar_sat_refutation,[],[f37,f104,f1619,f1981,f9635])).
+% SZS output end Proof for LCL036-1
+% ------------------------------
+% Version: Vampire 4.2.2 (commit e1949dd on 2017-12-14 18:39:21 +0000)
+% Termination reason: Refutation
+
+% Memory used [KB]: 10490
+% Time elapsed: 0.089 s
+% ------------------------------
+% ------------------------------

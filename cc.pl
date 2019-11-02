@@ -84,7 +84,7 @@ ecs_eq(ECs, TermA, TermB, Prf) :-
 ec_eq(TermA, TermB, (Tree, _), Eqn) :- 
   et_eq(TermA, TermB, Tree, Eqn).
 
-et_eq(Term, Term, elem(Term), gamma(Term, (! [X] : (X = X)), close)).
+et_eq(Term, Term, elem(Term), gamma(Term, (! 0: (#(0) = #(0))), close)).
 
 et_eq(TermA, TermB, bridge(TreeL, (TermL, PrfLR, TermR), TreeR), PrfAB) :- 
   ( member_tree(TermA, TreeL), 
@@ -96,9 +96,10 @@ et_eq(TermA, TermB, bridge(TreeL, (TermL, PrfLR, TermR), TreeR), PrfAB) :-
   ( et_eq(TermA, TermL, TreeL, PrfL), 
     et_eq(TermR, TermB, TreeR, PrfR), 
     prove_eqs_trans([TermA, TermL, TermR, TermB], [PrfL, PrfLR, PrfR], TermB, PrfAB) ) ;
-  ( et_eq(TermB, TermL, TreeL, PrfL), 
-    et_eq(TermR, TermA, TreeR, PrfR), 
-    prove_eqs_trans([TermB, TermL, TermR, TermA], [PrfL, PrfLR, PrfR], TermA, PrfAB) ).
+  ( et_eq(TermL, TermB, TreeL, PrfLB), 
+    et_eq(TermA, TermR, TreeR, PrfAR), 
+    prove_eq_symm(TermL, PrfLR, TermR, PrfRL),
+    prove_eqs_trans([TermA, TermR, TermL, TermB], [PrfAR, PrfRL, PrfLB], TermB, PrfAB) ).
 
 prove_eqs_trans([_, TermB], [Prf], TermB, Prf). 
 

@@ -1,5 +1,7 @@
-elab(([
- (someone=aunt_agatha|~spl0_2)
- ~killed(aunt_agatha,aunt_agatha)
 
-killed(someone,someone) & spl0_2)
+join(@(1), meet(meet(join(_15298,meet(@(1), @(0))), join(meet(@(1),  @(0)),_14972)), meet(@(1), _14310))) = @(1)
+           meet(meet(join(_15298,meet(@(1), @(0))), join(meet(@(1),  @(0)),_14972)), meet(@(1), @(0)))
+           meet(@(1), @(0))
+join(@(1), meet(@(1), @(0)))           = @(1)
+
+

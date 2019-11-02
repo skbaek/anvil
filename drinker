@@ -1,0 +1,36 @@
+% Refutation found. Thanks to Tanya!
+% SZS status Theorem for drinker
+% SZS output start Proof for drinker
+fof(f1,conjecture,(
+  ? [X0] : ! [X1] : (drinks(X0) | ~drinks(X1))),
+  file('drinker.p',unknown)).
+fof(f2,negated_conjecture,(
+  ~ ? [X0] : ! [X1] : (drinks(X0) | ~drinks(X1))),
+  inference(negated_conjecture,[],[f1])).
+fof(f3,plain,(
+  ! [X0] : ? [X1] : (~drinks(X0) & drinks(X1))),
+  inference(ennf_transformation,[],[f2])).
+fof(f4,plain,(
+  ! [X0] : (? [X1] : (~drinks(X0) & drinks(X1)) => (~drinks(X0) & drinks(sK0(X0))))),
+  introduced(choice_axiom,[])).
+fof(f5,plain,(
+  ! [X0] : (~drinks(X0) & drinks(sK0(X0)))),
+  inference(skolemisation,[status(esa),new_symbols(skolem,[sK0])],[f3,f4])).
+fof(f6,plain,(
+  ( ! [X0] : (drinks(sK0(X0))) )),
+  inference(cnf_transformation,[],[f5])).
+fof(f7,plain,(
+  ( ! [X0] : (~drinks(X0)) )),
+  inference(cnf_transformation,[],[f5])).
+fof(f8,plain,(
+  $false),
+  inference(subsumption_resolution,[],[f6,f7])).
+% SZS output end Proof for drinker
+% ------------------------------
+% Version: Vampire 4.2.2 (commit e1949dd on 2017-12-14 18:39:21 +0000)
+% Termination reason: Refutation
+
+% Memory used [KB]: 4733
+% Time elapsed: 0.024 s
+% ------------------------------
+% ------------------------------
