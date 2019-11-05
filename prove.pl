@@ -240,8 +240,8 @@ decom_clause((ClaA | ClaB), beta((ClaA | ClaB), PrfA, PrfB), Goals) :-
   decom_clause(ClaB, PrfB, GoalsB),
   append(GoalsA, GoalsB, Goals).
 
-decom_clause(Lit, Prf, [(Lit, Prf)]) :-
-  literal(Lit).
+decom_clause(Form, Prf, [(Form, Prf)]).
+  %literal(Lit).
 
 break_clause(Cla, Lits) :- 
   decom_clause(Cla, _, Goals), 
@@ -465,19 +465,35 @@ undup(Prem, Conc, Prf) :-
   linear(0, ~ Conc, Prf, _, Lits, SubPrf), 
   close_clause(Lits, Prem, SubPrf).
 
-apply_ac(Prems, Conc, 
-  delta(c, ~ Conc, 
-    gamma(c, FormFA, 
-      gamma(c, FormFAB, 
-        beta(FormA => FormB, close, close)
-      )
-    )   
-  )) :-
-  break_delta(c, ~ Conc, ~ FormB),
-  member(FormFAB, Prems),
-  break_gamma(c, FormFAB, FormA => FormB), 
-  member(FormFA, Prems),
-  break_gamma(c, FormFA, FormA). 
+apply_ac([Prem | Prems], Conc, Prf) :-
+  linear(0, ~ Conc, Prf, _, Lits, SubPrf),
+  decom_clause(Prem, SubPrf, Goals), 
+  maplist(apply_ac_core(Prems, Lits), Goals).
+
+apply_ac_core(Prems, Lits, (Atom, Prf)) :-
+  member(Prem, Prems), 
+  apply_ac_core(Atom, Prem, Lits, Prf).
+
+apply_ac_core(Atom, FaForm, Lits, gamma(Term, FaForm, Prf)) :-
+  break_gamma(Term, FaForm, Form), 
+  apply_ac_core(Atom, Form, Lits, Prf).
+  
+apply_ac_core(AtomA, AtomA => AtomB, Lits, beta(AtomA => AtomB, close, close)) :-
+  member(~ AtomB, Lits).
+
+% apply_ac(Prems, Conc, 
+%   delta(c, ~ Conc, 
+%     gamma(c, FormFA, 
+%       gamma(c, FormFAB, 
+%         beta(FormA => FormB, close, close)
+%       )
+%     )   
+%   )) :-
+%   break_delta(c, ~ Conc, ~ FormB),
+%   member(FormFAB, Prems),
+%   break_gamma(c, FormFAB, FormA => FormB), 
+%   member(FormFA, Prems),
+%   break_gamma(c, FormFA, FormA). 
 
 close_clause(Lits, Cla, Prf) :- 
   decom_clause(Cla, Prf, Goals), 
@@ -693,27 +709,29 @@ failure_id(failure(ID), ID).
 includes_goal_id(IDs, goal(ID, _, _, _)) :- 
   member(ID, IDs).
 
-write_prem(Stream, Num, ID) :-
+write_prem(Num, ID) :-
   fof(ID, _, Prem, _), 
   numbervars(Prem, 0, _),
-  write(Stream, fof(Num, axiom, Prem)),
-  write(Stream, ".\n\n").
+  write(fof(Num, axiom, Prem)),
+  write(".\n\n").
 
-write_failure(SrcName, Num, ID) :-
-  number_string(Num, NumStr), 
-  strings_concat([SrcName, ".failure.", NumStr], TgtName), 
-  open(TgtName, write, Stream),
+write_failure(ID) :-
+  % number_string(Num, NumStr), 
+  % strings_concat([SrcName, ".failure.", NumStr], TgtName), 
+  % open(TgtName, write, Stream),
   fof(ID, Type, Conc, Info), 
   term_string(fof(ID, Type, Conc, Info), StepStr), 
   Info = inference(_, _, PremIDs), 
-  write(Stream, "% "),
-  write(Stream, StepStr),
-  write(Stream, "\n\n"),
-  maplist_idx(write_prem(Stream), 0, PremIDs), 
+  write("\n--------------------------------------\n"),
+  write("\nFailed goal : "),
+  write(StepStr),
+  write("\n\n"),
+  maplist_idx(write_prem, 0, PremIDs), 
   numbervars(Conc, 0, _),
-  write(Stream, fof(c, conjecture, Conc)), 
-  write(Stream, "."),
-  close(Stream).
+  write(fof(c, conjecture, Conc)), 
+  write(".\n"),
+  % close(Stream).
+  true.
 
 prove(Source, Target) :-
   dynamic(fof/4),
@@ -726,7 +744,7 @@ prove(Source, Target) :-
   (
     member(failure(_), Sols) -> 
     ( collect(failure_id, Sols, IDs),
-      maplist_idx(write_failure(Source), 0, IDs) ) ;
+      maplist(write_failure, IDs) ) ;
     ( stitch(Hyps, Augs, Sols, Prf), 
       write_file_punct(Target, proof(Prf)) )
   ).

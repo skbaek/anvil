@@ -1,7 +1,0 @@
-% fof(f20397,plain,![_11924,_11930]:(meet(_11930,_11924)=join(meet(_11924,_11930),meet(_11930,_11924))),inference(backward_demodulation,[],[f20272,f13874]))
-
-fof(0,axiom,![A,B,C]:(meet(C,A)=join(meet(B,meet(A,C)),meet(C,A)))).
-
-fof(1,axiom,![A,B,C]:(meet(C,B)=join(join(meet(A,meet(C,B)),meet(B,C)),meet(C,B)))).
-
-fof(c,conjecture,![A,B]:(meet(B,A)=join(meet(A,B),meet(B,A)))).

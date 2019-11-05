@@ -55,7 +55,6 @@ substitute(NumA, Term, Exp, NewTerm) :-
 substitute(Num, Term, Exp, NewExp) :- 
   not(var(Exp)), 
   not(Exp = #(_)), 
-  not(Exp = @(_, _)), 
   Exp =.. [Symb | Terms],  
   maplist(substitute(Num, Term), Terms, NewTerms),
   NewExp =.. [Symb | NewTerms].
