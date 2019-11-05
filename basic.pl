@@ -38,9 +38,9 @@ break_delta(Term, ~ (! Var : Form), ~ NewForm) :-
 delta(? _ : _).
 delta(~ (! _ : _)).
 
-skolemize(SkmFun, (! NumA : ? NumB : Form), (! NumA : NewForm)) :- 
-  SkmTerm =.. [SkmFun, #(NumA)],
-  substitute(NumB, SkmTerm, Form, NewForm).
+% skolemize(SkmFun, (! NumA : ? NumB : Form), (! NumA : NewForm)) :- 
+%   SkmTerm =.. [SkmFun, #(NumA)],
+%   substitute(NumB, SkmTerm, Form, NewForm).
 
 substitute(_, _, Var, Var) :- 
   var(Var). 
@@ -55,10 +55,11 @@ substitute(NumA, Term, Exp, NewTerm) :-
 substitute(Num, Term, Exp, NewExp) :- 
   not(var(Exp)), 
   not(Exp = #(_)), 
-  not(Exp = @(_)), 
+  not(Exp = @(_, _)), 
   Exp =.. [Symb | Terms],  
   maplist(substitute(Num, Term), Terms, NewTerms),
   NewExp =.. [Symb | NewTerms].
+
 union([], []).
 
 union([List | Lists], Set) :- 
@@ -87,14 +88,6 @@ strings_concat_with(_, [Str], Str).
 strings_concat_with(Div, [Str | Strs], Result) :-
   strings_concat_with(Div, Strs, TempStr),
   strings_concat([Str, Div, TempStr], Result).
-
-% % Similar to nth0/3, but avoids instantiating list elements.
-% where(ElemA, [ElemB | _], 0) :- 
-%   subsumes(ElemA, ElemB).
-% 
-% where(Elem, [_ | List], Num) :- 
-%   where(Elem, List, PredNum), 
-%   Num is PredNum + 1.
  
 % Similar to member/2, but avoids instantion.
 occurs(ElemA, [ElemB | _]) :- 
@@ -103,23 +96,23 @@ occurs(ElemA, [ElemB | _]) :-
 occurs(Elem, [_ | List]) :-
   occurs(Elem, List).
 
-indexed_maplist(_, _, []).
-
-indexed_maplist(Goal, Num, [Elem | List]) :-
-  call(Goal, Num, Elem),
-  SuccNum is Num + 1,
-  indexed_maplist(Goal, SuccNum, List).
-
-indexed_maplist(_, _, [], []).
-
-indexed_maplist(Goal, Num, [ElemA | ListA], [ElemB | ListB]) :-
-  call(Goal, Num, ElemA, ElemB),
-  SuccNum is Num + 1,
-  indexed_maplist(Goal, SuccNum, ListA, ListB).
-
-htn0(Num, List, Elem) :- 
-  reverse(List, Tsil),
-  nth0(Num, Tsil, Elem).
+% indexed_maplist(_, _, []).
+% 
+% indexed_maplist(Goal, Num, [Elem | List]) :-
+%   call(Goal, Num, Elem),
+%   SuccNum is Num + 1,
+%   indexed_maplist(Goal, SuccNum, List).
+% 
+% indexed_maplist(_, _, [], []).
+% 
+% indexed_maplist(Goal, Num, [ElemA | ListA], [ElemB | ListB]) :-
+%   call(Goal, Num, ElemA, ElemB),
+%   SuccNum is Num + 1,
+%   indexed_maplist(Goal, SuccNum, ListA, ListB).
+% 
+% htn0(Num, List, Elem) :- 
+%   reverse(List, Tsil),
+%   nth0(Num, Tsil, Elem).
 
 write_file(Target, Term) :-
   open(Target, write, Stream),
@@ -180,6 +173,7 @@ list_str(List, Str) :-
   strings_concat_with(", ", Strs, Str).
 
 last([Elem], Elem). 
+
 last([_ | List], Elem) :- last(List, Elem). 
 
 decr_if_pos(Num, Pred) :-
@@ -275,5 +269,58 @@ aoc_skolem_fun(Form, Skm) :-
   SkmTrm =.. [Skm | Vars], 
   substitute(Num, SkmTrm, FormA, FormB).
 
+maplist_cut(Goal, [Elem | List]) :- 
+  call(Goal, Elem), !, 
+  maplist_cut(Goal, List). 
+
+maplist_cut(_, []).
+
+maplist_cut(Goal, [ElemA | ListA], [ElemB | ListB]) :- 
+  call(Goal, ElemA, ElemB), !, 
+  maplist_cut(Goal, ListA, ListB). 
+
+maplist_cut(_, [], []).
+
+maplist_idx(Goal, Num, [Elem | List]) :- 
+  call(Goal, Num, Elem), 
+  Succ is Num + 1,
+  maplist_idx(Goal, Succ, List).
+
+maplist_idx(_, _, []).
 
 
+/* Monotonicity */
+
+mk_mono_args(0, [], []).
+
+mk_mono_args(Num, [#(NumA) | VarsA], [#(NumB) | VarsB]) :-
+  NumA is (Num * 2) - 1, 
+  NumB is (Num * 2) - 2, 
+  Pred is Num - 1,
+  mk_mono_args(Pred, VarsA, VarsB).
+
+mk_mono_eq(Num, Fun, TermA = TermB) :- 
+  mk_mono_args(Num, VarsA, VarsB),
+  TermA =.. [Fun | VarsA],
+  TermB =.. [Fun | VarsB].
+
+mk_mono_imp(Num, Rel, AtomA => AtomB) :- 
+  mk_mono_args(Num, VarsA, VarsB),
+  AtomA =.. [Rel | VarsA],
+  AtomB =.. [Rel | VarsB], !.
+
+mk_mono_fun(Num, Fun, Mono) :- 
+  mk_mono_eq(Num, Fun, Eq), 
+  mk_mono(Num, Eq, Mono), !.
+
+mk_mono_rel(Num, Rel, Mono) :- 
+  mk_mono_imp(Num, Rel, Imp), 
+  mk_mono(Num, Imp, Mono).
+
+mk_mono(0, Cons, Cons).
+
+mk_mono(Num, Cons, ! NumA : ! NumB : ((#(NumA) = #(NumB)) => Mono)) :-
+  NumA is (Num * 2) - 1, 
+  NumB is (Num * 2) - 2, 
+  decr_if_pos(Num, Pred), 
+  mk_mono(Pred, Cons, Mono), !.

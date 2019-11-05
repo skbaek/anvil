@@ -1,4 +1,4 @@
-:- [basic, cc].
+:- [basic].
 
 :- op(1130, xfy, <=>). % equivalence
 :- op(1110, xfy, =>).  % implication
@@ -8,7 +8,6 @@
 :- op( 500, fy, ?).    % existential quantifier
 :- op( 500, xfy, :).
 
-theorem(_, _).
 fof(_, _, _, _).
 
 number_letter(Num, "x") :- 0 is Num mod 6.
@@ -46,6 +45,7 @@ index_form_string(Num, Frm, Str) :-
   form_string(Frm, FrmStr),
   strings_concat(["[", NumStr, "] ", FrmStr, "\n"], Str).
 
+/* 
 uses(_, Var) :- 
   var(Var), !, false.
 
@@ -88,6 +88,7 @@ uses(Symb, Exp) :-
 uses_any([Symb | Symbs], Frm) :- 
   uses(Symb, Frm);
   uses_any(Symbs, Frm).
+*/
 
 translate(Num, ~ TPTP, ~ Form) :- !, 
  translate(Num, TPTP, Form).
@@ -129,47 +130,6 @@ translate(TPTP, Term) :- !,
   maplist(translate, TPTPs, Terms),
   Term =.. [Fun | Terms].
 
-prove_args(['-p', Source, Target | _], Source, Target).
-prove_args([_ | Argv], Source, Target) :-
-  prove_args(Argv, Source, Target).
-
-verify_args(['-v', Source | _], Source).
-verify_args([_ | Argv], Source) :-
-  verify_args(Argv, Source).
- 
-help_msg :-
-  write(
-"=========== Usage ==========\n
-Call Kes using\n 
-  kes -p [source] [target]\n
-to import a TSTP proof from\n 
-[source] and save the compiled\n 
-proof at [target]\n
-  kes -v [source]\n
-to verify a proof at [target]\n
-=========== End ==========\n"
-  ).
-
-% main(Argv) :-
-%   dynamic(theorem/2),
-%   dynamic(fof/4),
-%   (
-%     ( prove_args(Argv, Source, Target), 
-%       prove_save(Source, Target) ) ;
-%     ( verify_args(Argv, Source), 
-%       verify(Source) ) ;
-%     help_msg
-%   ).
-
-% prove_save(Source, Target) :-
-%   retractall(fof(_, _, _, _)),
-%   consult(Source),
-%   fof(Id,_, $false, _),
-%   id_tree(Id, Tree),
-%   prove((Tree, [], []), (Smt, _, Prf)),
-%   punctuate(theorem(Smt, Prf), Str),
-%   write_file(Target, Str).
-
 literal(~ Atom) :- 
   propatom(Atom).
 
@@ -192,21 +152,13 @@ superpositional(Rul) :-
     [
       superposition,
       forward_demodulation,
-      backward_demodulation
+      backward_demodulation,
+      definitional_unfolding
     ]
   ).
 
 resolutional(Rul) :-
-  member(
-    Rul,
-    [
-      resolution,
-      subsumption_resolution
-      % superposition
-      % forward_demodulation,
-      % backward_demodulation
-    ]
-  ).
+  member(Rul, [resolution, subsumption_resolution]).
 
 simple_fol(Rul) :-
   member(
@@ -218,18 +170,12 @@ simple_fol(Rul) :-
       avatar_contradiction_clause,
       avatar_component_clause,
       flattening,
-      rectify,
-      skolemisation
+      rectify
     ]
   ).
 
 splitting(Rul) :-
-  member(
-    Rul,
-    [
-      avatar_split_clause
-    ]
-  ).
+  member(Rul, [avatar_split_clause]).
 
 linear(Par, [], Prf, Par, [], Prf). 
 
@@ -367,7 +313,7 @@ prove_eq_super(TermA, TermL, TermR, TermB, Prf) :-
   TermA =.. [Fun | TermsA],
   TermB =.. [Fun | TermsB],
   length(TermsA, Lth),
-  mk_mono_fun(Lth, Fun, Mono), 
+  mk_mono_fun(Lth, Fun, Mono),
   prove_eq_super(TermsA, TermL, TermR, TermsB, Mono, Prf).
 
 prove_eq_super([], _, _, [], _ = _, close).
@@ -537,11 +483,11 @@ close_clause(Lits, Cla, Prf) :-
   decom_clause(Cla, Prf, Goals), 
   maplist(close_goal(Lits), Goals). 
 
-elab((Prems, Conc, Rul), (Prf, Conc)) :-
+elab(goal(_, Prems, Conc, Rul), (Prf, Conc)) :-
   elab_eva(Prems, Conc, Rul, Prf), 
   ground_all(Prf). 
 
-elab((Prems, Conc, Rul), admit(Prems, Conc, Rul)).
+elab(goal(ID, _, _, _), failure(ID)).
 
 elab_eva(Prems, Conc, skolemisation, Prf) :- 
   apply_ac(Prems, Conc, Prf).
@@ -632,8 +578,6 @@ extra_augs(Trunk, Prf, Augs) :-
   extra_prems(Trunk, Prf, Prems), 
   maplist(annotate_aug, Prems, Augs).
 
-% Def
-% Skm
 % DNE
 % Alpha
 % Beta
@@ -703,8 +647,8 @@ aug(Form, def) :-
   fof(_, _, TPTP, introduced(avatar_definition, _)),
   translate(0, TPTP, Form).
 
-goal(Prems, Conc, Rul) :- 
-  fof(_, _, TPTP, inference(Rul, _, Ids)),
+goal(ID, Prems, Conc, Rul) :- 
+  fof(ID, _, TPTP, inference(Rul, _, Ids)),
   not(Rul = negated_conjecture),
   translate(0, TPTP, Conc),
   maplist(id_form, Ids, Prems).
@@ -744,24 +688,50 @@ stitch(Hyps, Augs, Prfs, Prf) :-
   prepend(Stock, PrfB, PrfC), !,
   number_prf([], PrfC, Prf).
 
-prove(Source) :-
+failure_id(failure(ID), ID).
+
+includes_goal_id(IDs, goal(ID, _, _, _)) :- 
+  member(ID, IDs).
+
+write_prem(Stream, Num, ID) :-
+  fof(ID, _, Prem, _), 
+  numbervars(Prem, 0, _),
+  write(Stream, fof(Num, axiom, Prem)),
+  write(Stream, ".\n\n").
+
+write_failure(SrcName, Num, ID) :-
+  number_string(Num, NumStr), 
+  strings_concat([SrcName, ".failure.", NumStr], TgtName), 
+  open(TgtName, write, Stream),
+  fof(ID, Type, Conc, Info), 
+  term_string(fof(ID, Type, Conc, Info), StepStr), 
+  Info = inference(_, _, PremIDs), 
+  write(Stream, "% "),
+  write(Stream, StepStr),
+  write(Stream, "\n\n"),
+  maplist_idx(write_prem(Stream), 0, PremIDs), 
+  numbervars(Conc, 0, _),
+  write(Stream, fof(c, conjecture, Conc)), 
+  write(Stream, "."),
+  close(Stream).
+
+prove(Source, Target) :-
   dynamic(fof/4),
   retractall(fof(_, _, _, _)),
   consult(Source),
   findall(hyp(Form), hyp(Form), Hyps),
   findall(aug(Form, Rul), aug(Form, Rul), Augs),
-  findall((Prems, Conc, Rul), goal(Prems, Conc, Rul), Goals),
-  maplist(elab, Goals, Prfs), !,
-  stitch(Hyps, Augs, Prfs, Prf), 
-  write_file_punct("output", proof(Prf)).
-  % list_br_str(Prfs, Str),
-  % write_file("output", Str).
+  findall(goal(ID, Prems, Conc, Rul), goal(ID, Prems, Conc, Rul), Goals),
+  maplist_cut(elab, Goals, Sols), !,
+  (
+    member(failure(_), Sols) -> 
+    ( collect(failure_id, Sols, IDs),
+      maplist_idx(write_failure(Source), 0, IDs) ) ;
+    ( stitch(Hyps, Augs, Sols, Prf), 
+      write_file_punct(Target, proof(Prf)) )
+  ).
 
-mapcut(Goal, [Elem | List]) :- 
-  call(Goal, Elem), !, 
-  mapcut(Goal, List). 
-
-mapcut(_, []).
+/* 
 
 precheck_test((Prems, Conc, Rul)) :- 
   elab_eva(Prems, Conc, Rul, Prf),
@@ -801,3 +771,5 @@ precheck(Bch, close) :-
 
 precheck(Bch, close) :-
   member($false, Bch).
+
+*/

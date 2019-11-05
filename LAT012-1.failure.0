@@ -1,0 +1,7 @@
+% fof(f6,plain,![_6048,_6054]:(meet(_6048,join(_6054,_6048))=_6048),inference(superposition,[],[f2,f1]))
+
+fof(0,axiom,![A,B,C]:(meet(B,join(C,join(B,A)))=B)).
+
+fof(1,axiom,![A,B,C]:(join(B,meet(C,meet(B,A)))=B)).
+
+fof(c,conjecture,![A,B]:(meet(A,join(B,A))=A)).

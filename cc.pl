@@ -152,39 +152,6 @@ lits_ecs(Lits, ECs) :-
   collect(mk_eqhyp, Lits, EqHyps),
   cc(EqHyps, InitECs, ECs).
 
-mk_mono_args(0, [], []).
-
-mk_mono_args(Num, [#(NumA) | VarsA], [#(NumB) | VarsB]) :-
-  NumA is (Num * 2) - 1, 
-  NumB is (Num * 2) - 2, 
-  Pred is Num - 1,
-  mk_mono_args(Pred, VarsA, VarsB).
-
-mk_mono_eq(Num, Fun, TermA = TermB) :- 
-  mk_mono_args(Num, VarsA, VarsB),
-  TermA =.. [Fun | VarsA],
-  TermB =.. [Fun | VarsB].
-
-mk_mono_imp(Num, Rel, AtomA => AtomB) :- 
-  mk_mono_args(Num, VarsA, VarsB),
-  AtomA =.. [Rel | VarsA],
-  AtomB =.. [Rel | VarsB], !.
-
-mk_mono_fun(Num, Fun, Mono) :- 
-  mk_mono_eq(Num, Fun, Eq), 
-  mk_mono(Num, Eq, Mono), !.
-
-mk_mono_rel(Num, Rel, Mono) :- 
-  mk_mono_imp(Num, Rel, Imp), 
-  mk_mono(Num, Imp, Mono).
-
-mk_mono(0, Cons, Cons).
-
-mk_mono(Num, Cons, ! NumA : ! NumB : ((#(NumA) = #(NumB)) => Mono)) :-
-  NumA is (Num * 2) - 1, 
-  NumB is (Num * 2) - 2, 
-  decr_if_pos(Num, Pred), 
-  mk_mono(Pred, Cons, Mono), !. 
 
 close_cc(Lits, Prf) :- 
   lits_sub_terms(Lits, Terms),
