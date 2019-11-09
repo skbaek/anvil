@@ -118,6 +118,7 @@ check(Bch, Consts, beta(Num, PrfA, PrfB)) :-
   check([FormB | Bch], Consts, PrfB).
 
 check(Bch, Consts, gamma(Term, Num, Prf)) :-
+  \+ member(#(_), Term), % Only ground term substitutions are permitted
   nth0(Num, Bch, FaForm),
   break_gamma(Term, FaForm, Form),
   term_consts(Term, TermConsts),
@@ -128,7 +129,7 @@ check(Bch, Consts, delta(Const, Num, Prf)) :-
   nth0(Num, Bch, ExForm),
   break_delta(Const, ExForm, Form),
   atom(Const), 
-  \+ member(Const, Consts),
+  \+ member(Const, Consts), % Delta rule parameter must be fresh
   ord_add_element(Consts, Const, NewConsts),
   check([Form | Bch], NewConsts, Prf).
 

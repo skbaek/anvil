@@ -163,9 +163,7 @@ resolutional(Rul) :-
 simple_fol(Rul) :-
   member(
     Rul,
-    [
-      cnf_transformation,
-      ennf_transformation,
+    [ 
       avatar_sat_refutation,
       avatar_contradiction_clause,
       avatar_component_clause,
@@ -177,75 +175,142 @@ simple_fol(Rul) :-
 splitting(Rul) :-
   member(Rul, [avatar_split_clause]).
 
-linear(Par, [], Prf, Par, [], Prf). 
+% split(Prem, Defs, Conc, Prf) :- 
+%   ade_n(0, ([~ Conc], Prf), Par, [(Lits, SubPrf)]), 
 
-linear(Par, [Form | Forms], Prf, NewPar, Lits, SubPrf) :-
-  linear(Par, Form, Prf, TempPar, LitsA, TempPrf),
-  linear(TempPar, Forms, TempPrf, NewPar, LitsB, SubPrf),
+% split(Prem, Par, [], Lits, Defs, SubPrf).
+ 
+% split(Prem, Par, Forms, Lits, [Def | Defs], alpha(Def, Prf)) :- 
+%   break_alpha(Def, (Atom => Form), (Form => Atom)), 
+%   (
+%     member(Atom, Lits) -> 
+%     (
+%       Prf = beta(Atom => Form, close, SubPrf),
+%       split(Prem, Par, [Atom, Form | Forms], Lits, Defs, SubPrf)
+%     ) ;
+%     (
+%       member(~ Atom, Lits) -> 
+%       (
+%         Prf = beta(Form => Atom, PrfA, close),
+%         ade_n(Par, [~ Form], PrfA, NewPar, NewLits, PrfB),
+%         append([~ Atom | NewLits], Forms, NewForms),
+%         split(Prem, NewPar, NewForms, Lits, Defs, PrfB)
+%       ) ;
+%       false
+%     ) 
+%   ).
+% 
+% split(Prem, _, Lits, _, [], Prf) :- 
+%   close_clause(Lits, Prem, Prf).
+
+% close_cont(FormsA, (FormsB, Prf)) :- 
+%   close_lit(Lits, Lit, Prf).
+
+
+
+/* Proof continuation processors */
+
+a_1((Forms, alpha(Form, Prf)), [([FormB, FormA | Rem], Prf)]) :- 
+  pluck(Forms, Form, Rem), 
+  break_alpha(Form, FormA, FormB).
+
+b_1((Forms, beta(Form, PrfA, PrfB)), [([FormA | Rem], PrfA), ([FormB | Rem], PrfB)]) :- 
+  pluck(Forms, Form, Rem),
+  break_beta(Form, FormA, FormB).
+
+c_1((Forms, gamma(Term, FaForm, Prf)), [([Form | Rem], Prf)]) :- 
+  pluck(Forms, FaForm, Rem),
+  break_gamma(Term, FaForm, Form). 
+
+% Caution : this predicate should NOT be used to process continuations 
+% that come after any gamma rules, as the parameter for delta rule has
+% no arguments and assumes the absence of any free variables.
+d_1(Par, (Forms, delta(@(Par, []), ExForm, Prf)), Succ, [([Form | Rem], Prf)]) :- 
+  pluck(Forms, ExForm, Rem), 
+  break_delta(@(Par, []), ExForm, Form), 
+  Succ is Par + 1.
+
+e_1((Forms, dne(~ ~ Form, Prf)), [([Form | Rem], Prf)]) :- 
+  pluck(Forms, ~ ~ Form, Rem).
+
+a_n(Cont, Conts) :- 
+  a_1(Cont, [NewCont]) -> 
+  a_n(NewCont, Conts) ;
+  (Conts = [Cont]).
+
+b_n(Cont, Conts) :- 
+  b_1(Cont, [ContA, ContB]) -> 
+  (
+    b_n(ContA, ContsA), 
+    b_n(ContB, ContsB), 
+    append(ContsA, ContsB, Conts)
+  ) ;
+  (Conts = [Cont]).
+
+c_n(Cont, Conts) :- 
+  c_1(Cont, [NewCont]) -> 
+  c_n(NewCont, Conts) ;
+  (Conts = [Cont]).
+
+e_n(Cont, Conts) :- 
+  e_1(Cont, [NewCont]) -> 
+  e_n(NewCont, Conts) ;
+  (Conts = [Cont]).
+
+% Apply all applicable alpha and delta rules to 'Forms'. Since it uses d_1, 
+% it should NOT be used to construct subproofs that come after any gamma rules.
+ade_n(Par, Cont, NewPar, [NewCont]) :- 
+  ade_1(Par, Cont, TempPar, [TempCont]) -> 
+  ade_n(TempPar, TempCont, NewPar, [NewCont]) ;
+  (NewPar = Par, NewCont = Cont).
+
+ade_1(Par, Cont, NewPar, Conts) :-
+  d_1(Par, Cont, NewPar, Conts).
+
+ade_1(Par, Cont, Par, Conts) :-
+  a_1(Cont, Conts) ;
+  e_1(Cont, Conts).
+
+bc_1(Cont, Conts) :-
+  b_1(Cont, Conts).
+
+bc_1(Cont, Conts) :-
+  c_1(Cont, Conts).
+
+abce_1(Cont, Conts) :-
+  a_1(Cont, Conts) ;
+  b_1(Cont, Conts) ;
+  c_1(Cont, Conts) ;
+  e_1(Cont, Conts).
+
+abce_n(Cont, Conts) :-
+  abce_1(Cont, TempConts) ->  
+  ( maplist(abce_n, TempConts, Contss), 
+    append(Contss, Conts) ) ; 
+  ( Conts = [Cont] ).
+
+bc_n(Cont, Conts) :-
+  bc_1(Cont, TempConts) ->  
+  ( maplist(bc_n, TempConts, Contss), 
+    append(Contss, Conts) ) ; 
+  ( Conts = [Cont] ).
+
+clause_lits(Cla, Lits) :- 
+  break_gamma(_, Cla, NewCla),
+  clause_lits(NewCla, Lits).
+
+clause_lits(Cla, Lits) :- 
+  break_beta(Cla, ClaA, ClaB),
+  clause_lits(ClaA, LitsA),
+  clause_lits(ClaB, LitsB),
   append(LitsA, LitsB, Lits).
 
-linear(Par, Form, delta(@(Par, []), Form, Prf), NewPar, Lits, SubPrf) :- 
-  break_delta(@(Par, []), Form, NewForm), 
-  Succ is Par + 1, 
-  linear(Succ, NewForm, Prf, NewPar, Lits, SubPrf).
-
-linear(Par, Form, alpha(Form, Prf), NewPar, Lits, SubPrf) :- 
-  break_alpha(Form, FormA, FormB), 
-  linear(Par, FormA, Prf, ParA, LitsA, SubPrfA), 
-  linear(ParA, FormB, SubPrfA, NewPar, LitsB, SubPrf),
-  append(LitsA, LitsB, Lits).
-
-linear(Par, ~ ~ Form, dne(~ ~ Form, Prf), NewPar, Lits, SubPrf) :- 
-  linear(Par, Form, Prf, NewPar, Lits, SubPrf). 
-
-linear(Par, Lit, Prf, Par, [Lit], Prf) :- 
+clause_lits(Lit, [Lit]) :- 
   literal(Lit).
 
-split(Prem, Defs, Conc, Prf) :- 
-  linear(0, ~ Conc, Prf, Par, Lits, SubPrf), 
-  split(Prem, Par, [], Lits, Defs, SubPrf).
-
-split(Prem, Par, Forms, Lits, [Def | Defs], alpha(Def, Prf)) :- 
-  break_alpha(Def, (Atom => Form), (Form => Atom)), 
-  (
-    member(Atom, Lits) -> 
-    (
-      Prf = beta(Atom => Form, close, SubPrf),
-      split(Prem, Par, [Atom, Form | Forms], Lits, Defs, SubPrf)
-    ) ;
-    (
-      member(~ Atom, Lits) -> 
-      (
-        Prf = beta(Form => Atom, PrfA, close),
-        linear(Par, ~ Form, PrfA, NewPar, NewLits, PrfB),
-        append([~ Atom | NewLits], Forms, NewForms),
-        split(Prem, NewPar, NewForms, Lits, Defs, PrfB)
-      ) ;
-      false
-    ) 
-  ).
-
-split(Prem, _, Lits, _, [], Prf) :- 
-  close_clause(Lits, Prem, Prf).
-
-close_goal(Lits, (Lit, Prf)) :- 
-  close_lit(Lits, Lit, Prf).
-
-decom_clause(Cla, gamma(Term, Cla, Prf), Goals) :- 
-  break_gamma(Term, Cla, NewCla), 
-  decom_clause(NewCla, Prf, Goals).
-
-decom_clause((ClaA | ClaB), beta((ClaA | ClaB), PrfA, PrfB), Goals) :- 
-  decom_clause(ClaA, PrfA, GoalsA),
-  decom_clause(ClaB, PrfB, GoalsB),
-  append(GoalsA, GoalsB, Goals).
-
-decom_clause(Form, Prf, [(Form, Prf)]).
-  %literal(Lit).
-
-break_clause(Cla, Lits) :- 
-  decom_clause(Cla, _, Goals), 
-  maplist(fst, Goals, Lits).
+% clause_lits(Cla, Lits) :- 
+%   decom_clause(Cla, _, Goals), 
+%   maplist(fst, Goals, Lits).
 
 fst((X, _), X).
 snd((_, Y), Y).
@@ -261,28 +326,28 @@ subset_except_one([ElemA | Sub], List, ElemB) :-
   
 find_pivots(Lits, ClaA, ClaB, LitA, LitB) :- 
   maplist(invert, Lits, CmpLits),
-  break_clause(ClaA, LitsA),
-  break_clause(ClaB, LitsB),
+  clause_lits(ClaA, LitsA),
+  clause_lits(ClaB, LitsB),
   subset_except_one(LitsA, CmpLits, LitA), 
   subset_except_one(LitsB, CmpLits, LitB).
 
 find_pivot(FormA, FormB, FormB, FormA, Atom) :- 
-  break_clause(FormA, LitsA),
-  break_clause(FormB, LitsB),
+  clause_lits(FormA, LitsA),
+  clause_lits(FormB, LitsB),
   member(~ Atom, LitsA), 
   member(Atom, LitsB).
 
 find_pivot(FormA, FormB, FormA, FormB, Atom) :- 
-  break_clause(FormA, LitsA),
-  break_clause(FormB, LitsB),
+  clause_lits(FormA, LitsA),
+  clause_lits(FormB, LitsB),
   member(Atom, LitsA), 
   member(~ Atom, LitsB).
 
-resolution(ClaA, ClaB, ClaC, Prf) :- 
-  find_pivot(ClaA, ClaB, ClaP, ClaN, Atom),
-  linear(0, ~ ClaC, Prf, _, Lits, cut(Atom, PrfA, PrfB)), 
-  close_clause([Atom | Lits], ClaN, PrfA),
-  close_clause([~ Atom | Lits], ClaP, PrfB).
+resolution(QlaA, QlaB, QlaC, Prf) :- 
+  find_pivot(QlaA, QlaB, QlaP, QlaN, Atom),
+  ade_n(0, ([~ QlaC], Prf), _, [(Lits, cut(Atom, PrfA, PrfB))]), 
+  lits_qla_cls([Atom | Lits], QlaN, PrfA),
+  lits_qla_cls([~ Atom | Lits], QlaP, PrfB).
 
 prove_imp_super(AtomA, TermA = TermB, AtomB, Prf) :-
   propatom(AtomA),
@@ -351,22 +416,23 @@ choose_lits(Lit, TermA = TermB, Prf, NewLit, TermA = TermB, NewPrf) :-
 choose_lits(TermA = TermB, Lit, Prf, NewLit, TermA = TermB, NewPrf) :- 
   choose_direction(Lit, Prf, NewLit, NewPrf).
 
-superposition(ClaA, ClaB, ClaC, Prf) :- 
-  linear(0, ~ ClaC, Prf, _, Lits, cut(CmpA, PrfA, cut(CmpB, PrfB, PrfC))), 
+sup(ClaA, ClaB, ClaC, Prf) :- 
+  ade_n(0, ([~ ClaC], Prf), _, [(Lits, cut(CmpA, PrfA, cut(CmpB, PrfB, PrfC)))]), 
   find_pivots(Lits, ClaA, ClaB, LitA, LitB),
   member(LitT, Lits), 
   invert(LitA, CmpA),
   invert(LitB, CmpB),
   invert(LitT, CmpT),
-  linear(_, [~ CmpB, ~ CmpA], PrfC, _, _, PrfD), % Literals available at this point : LitA, LitB, LitT
+  e_n(([~ CmpB, ~ CmpA], PrfC), [(_, PrfD)]), % Literals available at this point : LitA, LitB, LitT
   choose_lits(LitA, LitB, PrfD, LitS, LitE, PrfE), % Choose the source literal LitS (i.e., the literal which 
                                                    % is equal to the target literal LitT modulo LitE), the
                                                    % equality literal LitE, and the direction in which LitS
                                                    % is to be used (which may vary if LitS is an equality).  
   prove_imp_super(LitS, LitE, CmpT, PrfE), % Prove that LitS plus LitE impies CmpT. Since LitT is already available 
                                            % on the branch, this means LitS and LitE are jointly contradictory.
-  close_clause([CmpA | Lits], ClaA, PrfA),
-  close_clause([CmpB | Lits], ClaB, PrfB).
+  lits_qla_cls([CmpA | Lits], ClaA, PrfA),
+  lits_qla_cls([CmpB | Lits], ClaB, PrfB).
+
 
 tableaux(Forms, Lim, Par, Terms, Mode, Lems, Pth, ~ ~ Form, NewLems, dne(~ ~ Form, Prf)) :- 
   tableaux(Forms, Lim, Par, Terms, Mode, Lems, Pth, Form, NewLems, Prf).
@@ -402,7 +468,7 @@ tableaux(Forms, Lim, Par, Terms, Mode, Lems, Pth, ExForm, NewLems, delta(@(Par, 
 tableaux(Forms, Lim, Par, Terms, block, Lems, Pth, Lit, NewLems, Prf) :- 
   literal(Lit), 
   (
-    close_lit(Pth, Lit, Prf) -> 
+    lits_lit_cls(Pth, Lit, Prf) -> 
     (NewLems = Lems) ;
     (
       find_lemma(Lems, Lit, Prf) -> % Lemmata check
@@ -421,13 +487,13 @@ tableaux(Forms, Lim, Par, Terms, block, Lems, Pth, Lit, NewLems, Prf) :-
 % previously focused literal.
 tableaux(_, _, _, _, match, Lems, [Cmp | _], Lit, Lems, Prf) :- 
   literal(Lit), 
-  close_lit([Cmp], Lit, Prf).
+  lits_lit_cls([Cmp], Lit, Prf).
 
 tableaux(Forms, Lim, Prf) :- 
   pluck(Forms, Form, Rem),
   tableaux(Rem, Lim, 0, [], block, [], [$true, ~ $false], Form, _, Prf).
 
-tableaux(Forms, 10, timeout(Forms)).
+tableaux(Forms, 15, timeout(Forms)).
 
 tableaux(Forms, Lim, Prf) :- 
   Succ is Lim + 1,
@@ -441,36 +507,52 @@ find_lemma(Lems, LitA, Prf) :-
   member((LitB, Prf), Lems), 
   LitA == LitB.
 
-close_lit(Lits, Lit, close) :-
-  member(Cmp, Lits),
-  complementary(Lit, Cmp).
+lits_lits_tmt(LitsA, (LitsB, Prf)) :-   
+  lits_lits_cls(LitsA, LitsB, Prf).  
 
-close_lit(Lits, (TermA = TermB), Prf) :-
-  member(Cmp, Lits),
-  complementary(Cmp, (TermB = TermA)),
-  prove_eq_symm(TermA, close, TermB, Prf, close).
+lits_lits_cls(LitsA, LitsB, Prf) :-   
+  member(LitB, LitsB),
+  lits_lit_cls(LitsA, LitB, Prf).
 
+lits_lit_tmt(Lits, ([Lit], Prf)) :-
+  lits_lit_cls(Lits, Lit, Prf).
+
+lits_lit_cls(Lits, Lit, Prf) :-
+  member(Cmp, Lits),
+  lit_lit_cls(Cmp, Lit, Prf).
+
+lit_lit_cls(AtomA, ~ AtomB, Prf) :-
+  propatom(AtomA),
+  propatom(AtomB),
+  atom_atom_cls(AtomA, AtomB, Prf).
+
+lit_lit_cls(~ AtomA, AtomB, Prf) :-
+  propatom(AtomA),
+  propatom(AtomB),
+  atom_atom_cls(AtomA, AtomB, Prf).
+
+atom_atom_cls(AtomA, AtomB, close) :-
+  unify_with_occurs_check(AtomA, AtomB).
+
+atom_atom_cls((TermA = TermB), Atom, Prf) :-
+  prove_eq_symm(TermA, close, TermB, Prf, close), 
+  unify_with_occurs_check((TermB = TermA), Atom).
+  
 invert(~ Form, Form).
 
 invert(Form, ~ Form) :-
   not(Form = ~ _).
 
-complementary(~ FormA, FormB) :- !,
-  unify_with_occurs_check(FormA, FormB).
-  
-complementary(FormA, ~ FormB) :- !,
-  unify_with_occurs_check(FormA, FormB).
-
 undup(Prem, Conc, Prf) :-
-  linear(0, ~ Conc, Prf, _, Lits, SubPrf), 
-  close_clause(Lits, Prem, SubPrf).
+  ade_n(0, ([~ Conc], Prf), _, [(Lits, SubPrf)]), 
+  lits_qla_cls(Lits, Prem, SubPrf).
 
 apply_ac([Prem | Prems], Conc, Prf) :-
-  linear(0, ~ Conc, Prf, _, Lits, SubPrf),
-  decom_clause(Prem, SubPrf, Goals), 
-  maplist(apply_ac_core(Prems, Lits), Goals).
+  ade_n(0, ([~ Conc], Prf), _, [(Lits, SubPrf)]),
+  bc_n(([Prem], SubPrf), Conts), 
+  maplist(apply_ac_core(Prems, Lits), Conts).
 
-apply_ac_core(Prems, Lits, (Atom, Prf)) :-
+apply_ac_core(Prems, Lits, ([Atom], Prf)) :-
   member(Prem, Prems), 
   apply_ac_core(Atom, Prem, Lits, Prf).
 
@@ -495,15 +577,116 @@ apply_ac_core(AtomA, AtomA => AtomB, Lits, beta(AtomA => AtomB, close, close)) :
 %   member(FormFA, Prems),
 %   break_gamma(c, FormFA, FormA). 
 
-close_clause(Lits, Cla, Prf) :- 
-  decom_clause(Cla, Prf, Goals), 
-  maplist(close_goal(Lits), Goals). 
+find_complements(FormsA, FormsB) :- 
+  member(~ Form, FormsA), 
+  member(Form, FormsB). 
+
+find_complements(FormsA, FormsB) :- 
+  member(~ Form, FormsB), 
+  member(Form, FormsA). 
+
+swap(X, Y, X, Y).
+swap(X, Y, Y, X).
+
+break_alpha_par(FormA & FormB, FormA, FormB).
+break_alpha_par(~ (FormA | FormB), ~ FormA, ~ FormB).
+break_alpha_par(~ (FormA => FormB), ~ FormB, FormA).
+break_alpha_par(FormA <=> FormB, FormB => FormA, FormA => FormB).
+
+break_beta_par(~ (FormA & FormB), beta(~ (FormA & FormB), PrfA, PrfB), ~ FormA, PrfA, ~ FormB, PrfB).
+break_beta_par(FormA | FormB, beta(FormA | FormB, PrfA, PrfB), FormA, PrfA, FormB, PrfB).
+break_beta_par(FormA => FormB, beta(FormA => FormB, PrfA, PrfB), FormB, PrfB, ~ FormA, PrfA).
+break_beta_par(~ (FormA <=> FormB), beta(~ (FormA <=> FormB), PrfA, PrfB),
+ ~ (FormB => FormA), PrfB, ~ (FormA => FormB), PrfA). 
+
+parallel_core(Terms, Par, FormA, FormB, 
+  delta(@(Par, Terms), FormA, gamma(Term, FormB, Prf)),
+  [([Term | Terms], Succ, NewFormA, NewFormB, Prf)]) :- 
+  break_delta(@(Par, Terms), FormA, NewFormA),
+  break_gamma(Term, FormB, NewFormB),
+  Succ is Par + 1.
+
+parallel_core(Terms, Par, ~ ~ FormA, FormB, dne(~ ~ FormA, Prf), [(Terms, Par, FormA, FormB, Prf)]).
+
+parallel_core(Terms, Par, FormA, FormB, alpha(FormA, Prf),
+  [
+    (Terms, Par, FormAL, FormBL, PrfL),
+    (Terms, Par, FormAR, FormBR, PrfR)
+  ]) :-
+  break_alpha_par(FormA, FormAL, FormAR),
+  break_beta_par(FormB, Prf, FormBL, PrfL, FormBR, PrfR).
+
+parallel((Terms, Par, FormA, FormB, Prf), NewPCs) :- 
+  swap(FormA, FormB, FormL, FormR),
+  parallel_core(Terms, Par, FormL, FormR, Prf, NewPCs).
+
+ennf(PC) :- 
+  parallel(PC, PCs) -> 
+  maplist(ennf, PCs) ;
+  ( PC = (_, _, FormA, FormB, close), 
+    (FormA = ~ FormB ; FormB = ~ FormA) ). 
+
+nnf(PC) :- 
+  parallel(PC, PCs) -> 
+  maplist_cut(nnf, PCs) ;
+  ( PC = (_, _, FormA, FormB, Prf), 
+    tableaux([FormA, FormB], Prf) ). 
+
+cnf(Prem, Conc, Prf) :- 
+  ade_n(0, ([~ Conc], Prf), _, [(Lits, SubPrf)]),
+  abce_n(([Prem], SubPrf), Conts),
+  maplist(lits_lits_tmt(Lits), Conts).
+
+% Predicates of the form x_y_cls(X, Y, Prf) bind Prf to a closed proof, 
+% where X and Y are available assumptions on the branch.
+
+% Predicates of the form x_y_tmt(X, (Y, Prf)) bind Prf to a closed proof, 
+% where X and Y are available assumptions on the branch, and (Y, Prf) is 
+% a proof continuation.
+
+eqr_core(Lits, Cont) :-
+  b_1(Cont, [ContA, ContB]) ->
+  (
+    (eqr_core(Lits, ContA), lits_cla_tmt(Lits, ContB)) ; 
+    (eqr_core(Lits, ContB), lits_cla_tmt(Lits, ContA))  
+  ) ;
+  ( Cont = ([~ (Term = Term)], Prf), 
+    prove_eq_refl(Term, Prf) ).
+
+  % eqr_core(Lits, ContA) ;
+
+
+
+
+
+
+eqr(Prem, Conc, Prf) :- 
+  ade_n(0, ([~ Conc], Prf), _, [(Lits, PrfA)]),
+  c_n(([Prem], PrfA), [([Form], PrfB)]),
+  eqr_core(Lits, ([Form], PrfB)).
+
+lits_cla_tmt(Lits, Cont) :- 
+  b_n(Cont, Conts), 
+  maplist(lits_lit_tmt(Lits), Conts). 
+
+lits_qla_cls(Lits, Qla, Prf) :- 
+  lits_qla_tmt(Lits, ([Qla], Prf)).
+
+lits_qla_tmt(Lits, Cont) :- 
+  bc_n(Cont, Conts), 
+  maplist(lits_lit_tmt(Lits), Conts). 
 
 elab(goal(_, Prems, Conc, Rul), (Prf, Conc)) :-
   elab_eva(Prems, Conc, Rul, Prf), 
   ground_all(Prf). 
 
-elab(goal(ID, _, _, _), failure(ID)).
+elab(goal(ID, Prems, Conc, Rul), failure(ID, Prems, Conc, Rul)).
+
+elab_eva([Prem], Conc, cnf_transformation, Prf) :- 
+  cnf(Prem, Conc, Prf).
+
+elab_eva([Prem], Conc, equality_resolution, Prf) :- 
+  eqr(Prem, Conc, Prf).
 
 elab_eva(Prems, Conc, skolemisation, Prf) :- 
   apply_ac(Prems, Conc, Prf).
@@ -516,17 +699,24 @@ elab_eva([~ (Term = Term)], _, trivial_inequality_removal, Prf) :-
 
 elab_eva([Form], Form, _, close).
 
-elab_eva([Prem | Prems], Conc, Rul, Prf) :- 
-  splitting(Rul),
-  split(Prem, Prems, Conc, Prf).
+% elab_eva([Prem | Prems], Conc, Rul, Prf) :- 
+%   splitting(Rul),
+%   split(Prem, Prems, Conc, Prf).
+
+
+elab_eva([Prem], Conc, ennf_transformation, Prf) :- 
+  ennf(([], 0, Prem, ~ Conc, Prf)).
+
+elab_eva([Prem], Conc, nnf_transformation, Prf) :- 
+  nnf(([], 0, Prem, ~ Conc, Prf)).
 
 elab_eva([PremA, PremB], Conc, Rul, Prf) :- 
   resolutional(Rul),
   resolution(PremA, PremB, Conc, Prf).
 
-elab_eva([ClaA, ClaB], ClaC, Rul, Prf) :- 
+elab_eva([QlaA, QlaB], QlaC, Rul, Prf) :- 
   superpositional(Rul),
-  superposition(ClaA, ClaB, ClaC, Prf).
+  sup(QlaA, QlaB, QlaC, Prf).
 
 elab_eva(Prems, Conc, Rul, Prf) :- 
   simple_fol(Rul),
@@ -664,10 +854,10 @@ aug(Form, def) :-
   translate(0, TPTP, Form).
 
 goal(ID, Prems, Conc, Rul) :- 
-  fof(ID, _, TPTP, inference(Rul, _, Ids)),
+  fof(ID, _, TPTP, inference(Rul, _, IDs)),
   not(Rul = negated_conjecture),
   translate(0, TPTP, Conc),
-  maplist(id_form, Ids, Prems).
+  maplist(id_form, IDs, Prems).
 
 remove_params(@(Num, _), Const) :- 
   number_string(Num, NumStr),
@@ -704,34 +894,32 @@ stitch(Hyps, Augs, Prfs, Prf) :-
   prepend(Stock, PrfB, PrfC), !,
   number_prf([], PrfC, Prf).
 
-failure_id(failure(ID), ID).
-
-includes_goal_id(IDs, goal(ID, _, _, _)) :- 
-  member(ID, IDs).
-
 write_prem(Num, ID) :-
   fof(ID, _, Prem, _), 
   numbervars(Prem, 0, _),
   write(fof(Num, axiom, Prem)),
   write(".\n\n").
 
-write_failure(ID) :-
-  % number_string(Num, NumStr), 
-  % strings_concat([SrcName, ".failure.", NumStr], TgtName), 
-  % open(TgtName, write, Stream),
-  fof(ID, Type, Conc, Info), 
-  term_string(fof(ID, Type, Conc, Info), StepStr), 
-  Info = inference(_, _, PremIDs), 
-  write("\n--------------------------------------\n"),
-  write("\nFailed goal : "),
-  write(StepStr),
-  write("\n\n"),
-  maplist_idx(write_prem, 0, PremIDs), 
+report_failure(_, (_, _)).
+
+report_failure(tptp, failure(ID, _, _, _)) :-
+  fof(ID, _, Conc, Info), 
   numbervars(Conc, 0, _),
+  Info = inference(_, _, IDs), 
+  maplist_idx(write_prem, 0, IDs),
   write(fof(c, conjecture, Conc)), 
-  write(".\n"),
-  % close(Stream).
-  true.
+  write(".\n\n\n\n").
+
+report_failure(graft, failure(_, Prems, Conc, Rul)) :-
+  write("Failed lemma : "),
+  write_break(2, Rul),
+  maplist(write_break(2), Prems),  
+  write("|- "),
+  write_break(4, Conc).
+
+%   numbervars(Conc, 0, _),
+%   % close(Stream).
+%   true.
 
 prove(Source, Target) :-
   dynamic(fof/4),
@@ -742,9 +930,8 @@ prove(Source, Target) :-
   findall(goal(ID, Prems, Conc, Rul), goal(ID, Prems, Conc, Rul), Goals),
   maplist_cut(elab, Goals, Sols), !,
   (
-    member(failure(_), Sols) -> 
-    ( collect(failure_id, Sols, IDs),
-      maplist(write_failure, IDs) ) ;
+    member(failure(_, _, _, _), Sols) -> 
+    maplist(report_failure(graft), Sols) ;
     ( stitch(Hyps, Augs, Sols, Prf), 
       write_file_punct(Target, proof(Prf)) )
   ).

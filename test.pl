@@ -1,11 +1,12 @@
-#!/usr/bin/env swipl
 
-:- initialization(main, main).
+bar(0).
+quz(0).
 
-main(Argv) :-
-  write(Argv),
-  (
-  member('-p', Argv) ->
-  write("YES") ;
-  write("NO")
-).
+qux(X) :- bar(X).
+qux(X) :- quz(X).
+
+foo(Num) :- 
+  qux(Num) -> 
+  (write("Fail"), false) ;
+  true.
+  

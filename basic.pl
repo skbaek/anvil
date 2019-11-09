@@ -38,10 +38,6 @@ break_delta(Term, ~ (! Var : Form), ~ NewForm) :-
 delta(? _ : _).
 delta(~ (! _ : _)).
 
-% skolemize(SkmFun, (! NumA : ? NumB : Form), (! NumA : NewForm)) :- 
-%   SkmTerm =.. [SkmFun, #(NumA)],
-%   substitute(NumB, SkmTerm, Form, NewForm).
-
 substitute(_, _, Var, Var) :- 
   var(Var). 
 
@@ -70,9 +66,17 @@ mark(Num) :-
   strings_concat(["Tracing ", NumStr, "\n"], Msg),
   write(Msg).
 
-write_break(Term) :-
+repeat(0, _).
+
+repeat(Num, Goal) :- 
+  0 < Num, 
+  Pred is Num - 1, 
+  call(Goal),
+  repeat(Pred, Goal).
+
+write_break(Num, Term) :-
   write(Term),
-  write("\n").
+  repeat(Num, write("\n")).
 
 strings_concat([], "").
 
@@ -94,24 +98,6 @@ occurs(ElemA, [ElemB | _]) :-
 
 occurs(Elem, [_ | List]) :-
   occurs(Elem, List).
-
-% indexed_maplist(_, _, []).
-% 
-% indexed_maplist(Goal, Num, [Elem | List]) :-
-%   call(Goal, Num, Elem),
-%   SuccNum is Num + 1,
-%   indexed_maplist(Goal, SuccNum, List).
-% 
-% indexed_maplist(_, _, [], []).
-% 
-% indexed_maplist(Goal, Num, [ElemA | ListA], [ElemB | ListB]) :-
-%   call(Goal, Num, ElemA, ElemB),
-%   SuccNum is Num + 1,
-%   indexed_maplist(Goal, SuccNum, ListA, ListB).
-% 
-% htn0(Num, List, Elem) :- 
-%   reverse(List, Tsil),
-%   nth0(Num, Tsil, Elem).
 
 write_file(Target, Term) :-
   open(Target, write, Stream),
@@ -323,3 +309,31 @@ mk_mono(Num, Cons, ! NumA : ! NumB : ((#(NumA) = #(NumB)) => Mono)) :-
   NumB is (Num * 2) - 2, 
   decr_if_pos(Num, Pred), 
   mk_mono(Pred, Cons, Mono), !.
+
+space_write(Num, Term) :- 
+  repeat(Num, write("|  ")),
+  write(Term).
+
+subformulas(Lvl, Form) :- 
+  space_write(Lvl, Form), 
+  Next is Lvl + 1, 
+  ( 
+    ( break_alpha(Form, FormA, FormB), 
+      write(" [alpha]\n"),
+      subformulas(Next, FormA),
+      subformulas(Next, FormB) ) ;
+    ( break_beta(Form, FormA, FormB), 
+      write(" [beta]\n"),
+      subformulas(Next, FormA),
+      subformulas(Next, FormB) ) ;
+    ( break_gamma(@(Lvl), Form, NewForm), 
+      write(" [gamma]\n"),
+      subformulas(Next, NewForm) ) ;
+    ( break_delta(@(Lvl), Form, NewForm), 
+      write(" [delta]\n"),
+      subformulas(Next, NewForm) ) ;
+    ( Form = ~ ~ NewForm, 
+      write(" [dne]\n"),
+      subformulas(Next, NewForm) ) ;
+    write(" [lit]\n")
+  ).
