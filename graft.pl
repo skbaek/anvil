@@ -11,7 +11,7 @@ prove_args([_ | Argv], Source, Target) :-
 check_args(['--check', Source | _], Source).
 check_args([_ | Argv], Source) :-
   check_args(Argv, Source).
- 
+
 help_msg :-
   write(
 "=========== Usage ==========\n

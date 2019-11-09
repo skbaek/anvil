@@ -40,7 +40,7 @@ form_funs_props(Atom, [], [Atom]) :-
 
 form_funs_props(Atom, Funs, []) :-
   \+ atom(Atom),
-  propatom(Atom), 
+  \+ molecular(Atom), 
   Atom =.. [_ | Terms], 
   maplist(term_funs, Terms, Funss), 
   ord_union(Funss, Funs).

@@ -1,10 +1,16 @@
 :- op(1130, xfy, <=>). % equivalence
 :- op(1110, xfy, =>).  % implication
-:- op(1110, xfy, &).   % conjunction
-:- op( 500, fy, ~).    % negation
-:- op( 500, fy, !).    % universal quantifier
-:- op( 500, fy, ?).    % existential quantifier
-:- op( 500, xfy, :).
+:- op( 550, fy, ~).    % negation
+:- op( 500,xfy, :).
+:- op(1130, xfy, <~>).  % negated equivalence
+:- op(1110, xfy, <=).   % implication
+:- op(1100, xfy, '|').  % disjunction
+:- op(1100, xfy, '~|'). % negated disjunction
+:- op(1000, xfy, &).    % conjunction
+:- op(1000, xfy, ~&).   % negated conjunction
+:- op( 500, fy, !).     % universal quantifier
+:- op( 500, fy, ?).     % existential quantifier
+:- op( 299, fx, $).     % for $true/$false
 
 /* Formula decomposition */
 
@@ -194,10 +200,10 @@ write_file_punct(Filename, Term) :-
   string_concat(TermStr, ".", Str),
   write_file(Filename, Str).
 
-propatom(Atom) :- 
-  not(member(Atom, 
+molecular(Exp) :- 
+  member(Exp, 
     [ (! _ : _), (? _ : _), (~ _), 
-      (_ | _), (_ & _), (_ => _), (_ <=> _) ])).
+      (_ | _), (_ & _), (_ => _), (_ <=> _) ]).
 
 aug_type(! 0: (#(0) = #(0)), refl_eq).
 
@@ -332,7 +338,7 @@ subformulas(Lvl, Form) :-
     ( break_delta(@(Lvl), Form, NewForm), 
       write(" [delta]\n"),
       subformulas(Next, NewForm) ) ;
-    ( Form = ~ ~ NewForm, 
+    ( Form = (~ ~ NewForm), 
       write(" [dne]\n"),
       subformulas(Next, NewForm) ) ;
     write(" [lit]\n")

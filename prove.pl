@@ -1,13 +1,5 @@
 :- [basic].
 
-:- op(1130, xfy, <=>). % equivalence
-:- op(1110, xfy, =>).  % implication
-:- op(1110, xfy, &).   % conjunction
-:- op( 500, fy, ~).    % negation
-:- op( 500, fy, !).    % universal quantifier
-:- op( 500, fy, ?).    % existential quantifier
-:- op( 500, xfy, :).
-
 fof(_, _, _, _).
 
 number_letter(Num, "x") :- 0 is Num mod 6.
@@ -34,117 +26,140 @@ fix_variables(Num, [X | Xs]) :-
   SuccNum is Num + 1,
   fix_variables(SuccNum, Xs).
 
-form_string(Frm, Str) :- 
-  copy_term(Frm, CopyFrm),
-  term_variables(CopyFrm, Vars),
-  fix_variables(0, Vars),
-  term_string(CopyFrm, Str).
-
-index_form_string(Num, Frm, Str) :- 
+form_str(! Num : Form, Str) :- 
   number_string(Num, NumStr),
-  form_string(Frm, FrmStr),
-  strings_concat(["[", NumStr, "] ", FrmStr, "\n"], Str).
+  form_str(Form, FormStr),
+  strings_concat(["(! [X", NumStr,  "] : ", FormStr, ")"], Str).
 
-/* 
-uses(_, Var) :- 
-  var(Var), !, false.
-
-uses(Symb, [Elem | List]) :- !, 
-  uses(Symb, Elem);
-  uses(Symb, List).  
-
-uses(Symb, ~ Frm) :- !, 
-  uses(Symb, Frm).
-
-uses(Symb, FrmA & FrmB) :- !,
-  uses(Symb, FrmA);
-  uses(Symb, FrmB).
+form_str(? Num : Form, Str) :- 
+  number_string(Num, NumStr),
+  form_str(Form, FormStr),
+  strings_concat(["(? [X", NumStr,  "] : ", FormStr, ")"], Str).
   
-uses(Symb, FrmA | FrmB) :- !,
-  uses(Symb, FrmA);
-  uses(Symb, FrmB).
+form_str(~ Form, Str) :- 
+  form_str(Form, FormStr),
+  strings_concat(["(~ ", FormStr, ")"], Str).
 
-uses(Symb, FrmA => FrmB) :- !,
-  uses(Symb, FrmA);
-  uses(Symb, FrmB).
+form_str(FormA & FormB, Str) :- 
+  form_str(FormA, StrA),
+  form_str(FormB, StrB),
+  strings_concat(["(", StrA, " & ", StrB, ")"], Str).
 
-uses(Symb, FrmA <=> FrmB) :- !,
-  uses(Symb, FrmA);
-  uses(Symb, FrmB).
+form_str(FormA | FormB, Str) :- 
+  form_str(FormA, StrA),
+  form_str(FormB, StrB),
+  strings_concat(["(", StrA, " | ", StrB, ")"], Str).
 
-uses(Symb, ! _ : Frm) :- !, 
-  uses(Symb, Frm).
+form_str(FormA => FormB, Str) :- 
+  form_str(FormA, StrA),
+  form_str(FormB, StrB),
+  strings_concat(["(", StrA, " => ", StrB, ")"], Str).
 
-uses(Symb, ? _ : Frm) :- !, 
-  uses(Symb, Frm).
+form_str(FormA <=> FormB, Str) :- 
+  form_str(FormA, StrA),
+  form_str(FormB, StrB),
+  strings_concat(["(", StrA, " <=> ", StrB, ")"], Str).
 
-uses(Symb, Exp) :- 
-  Exp =.. [Symb | _].
+form_str(TermA = TermB, Str) :- 
+  term_str(TermA, StrA),
+  term_str(TermB, StrB),
+  strings_concat(["(", StrA, " = ", StrB, ")"], Str).
 
-uses(Symb, Exp) :- 
-  Exp =.. [_ | Terms],
-  uses(Symb, Terms).
+form_str(Form, Str) :- 
+  \+ molecular(Form), 
+  Form =.. [Rel | Terms], 
+  term_string(Rel, RelStr),
+  maplist_cut(term_str, Terms, Strs),
+  strings_concat_with(", ", Strs, ArgStr), 
+  strings_concat([RelStr, "(", ArgStr, ")"], Str).
 
-uses_any([Symb | Symbs], Frm) :- 
-  uses(Symb, Frm);
-  uses_any(Symbs, Frm).
-*/
+term_str(#(Num), Str) :- 
+  number_string(Num, NumStr), 
+  strings_concat(["X", NumStr], Str).
 
-translate(Num, ~ TPTP, ~ Form) :- !, 
- translate(Num, TPTP, Form).
+term_str(Term, Str) :- 
+  atom(Term), 
+  term_string(Term, Str).
 
-translate(Num, (! [#(Num)] : TPTP), (! Num : Form))  :- !, 
+term_str(Term, Str) :- 
+  Term \= #(_),
+  \+ atom(Term),
+  Term =.. [Fun | Terms], 
+  term_string(Fun, FunStr),
+  maplist_cut(term_str, Terms, Strs),
+  strings_concat_with(", ", Strs, ArgStr), 
+  strings_concat([FunStr, "(", ArgStr, ")"], Str).
+
+tptp_form(Num, ~ TPTP, ~ Form) :- 
+ tptp_form(Num, TPTP, Form).
+
+tptp_form(Num, ! [Var] : TPTP, ! Num : Form)  :- 
+  copy_term(! [Var] : TPTP, ! [#(Num)] : CopyTPTP), 
   Succ is Num + 1,
-  translate(Succ, TPTP, Form).
+  tptp_form(Succ, CopyTPTP, Form).
 
-translate(Num, (! [#(Num) | Vars] : TPTP), (! Num : Form))  :- !, 
+tptp_form(Num, ! [Var | Vars] : TPTP, ! Num : Form)  :- 
+  Vars \= [],
+  copy_term(! [Var | Vars] : TPTP, ! [#(Num) | CopyVars] : CopyTPTP), 
   Succ is Num + 1,
-  translate(Succ, ! Vars : TPTP, Form).
+  tptp_form(Succ, ! CopyVars : CopyTPTP, Form).
 
-translate(Num, (? [#(Num)] : TPTP), (? Num : Form))  :- !, 
+tptp_form(Num, ? [Var] : TPTP, ? Num : Form)  :- 
+  copy_term(? [Var] : TPTP, ? [#(Num)] : CopyTPTP), 
   Succ is Num + 1,
-  translate(Succ, TPTP, Form).
+  tptp_form(Succ, CopyTPTP, Form).
 
-translate(Num, (? [#(Num) | Vars] : TPTP), (? Num : Form))  :- !, 
+tptp_form(Num, ? [Var | Vars] : TPTP, ? Num : Form)  :- 
+  Vars \= [],
+  copy_term(? [Var | Vars] : TPTP, ? [#(Num) | CopyVars] : CopyTPTP), 
   Succ is Num + 1,
-  translate(Succ, ? Vars : TPTP, Form).
+  tptp_form(Succ, ? CopyVars : CopyTPTP, Form).
 
-translate(_, (TPTP_A \= TPTP_B), ~ (TermA = TermB)) :- !,
-  translate(TPTP_A, TermA),
-  translate(TPTP_B, TermB).
+tptp_form(_, (TPTP_A \= TPTP_B), ~ (TermA = TermB)) :- 
+  tptp_term(TPTP_A, TermA),
+  tptp_term(TPTP_B, TermB).
 
-translate(Num, TPTP, Form) :- 
-  TPTP =.. [Conn, TPTP_A, TPTP_B],
-  member(Conn, [&, '|', =>, <=>]), !,
-  translate(Num, TPTP_A, FormA),
-  translate(Num, TPTP_B, FormB),
-  Form =.. [Conn, FormA, FormB].
+tptp_form(Num, TPTP_A & TPTP_B, FormA & FormB) :- 
+  tptp_form(Num, TPTP_A, FormA),
+  tptp_form(Num, TPTP_B, FormB).
 
-translate(_, TPTP, Form) :- !,
+tptp_form(Num, TPTP_A | TPTP_B, FormA | FormB) :- 
+  tptp_form(Num, TPTP_A, FormA),
+  tptp_form(Num, TPTP_B, FormB).
+
+tptp_form(Num, TPTP_A => TPTP_B, FormA => FormB) :- 
+  tptp_form(Num, TPTP_A, FormA),
+  tptp_form(Num, TPTP_B, FormB).
+
+tptp_form(Num, TPTP_A <=> TPTP_B, FormA <=> FormB) :- 
+  tptp_form(Num, TPTP_A, FormA),
+  tptp_form(Num, TPTP_B, FormB).
+
+tptp_form(_, TPTP, Form) :- 
+  \+ molecular(TPTP),
   TPTP =.. [Rel | TPTPs], 
-  maplist(translate, TPTPs, Terms),
+  maplist_cut(tptp_term, TPTPs, Terms),
   Form =.. [Rel | Terms].
 
-translate(TPTP, Term) :- !,
+tptp_term(TPTP, Term) :- 
   TPTP =.. [Fun | TPTPs], 
-  maplist(translate, TPTPs, Terms),
+  maplist_cut(tptp_term, TPTPs, Terms),
   Term =.. [Fun | Terms].
 
 literal(~ Atom) :- 
-  propatom(Atom).
+  \+ molecular(Atom).
 
 literal(Atom) :- 
-  propatom(Atom).
+  \+ molecular(Atom).
 
-id_form(Id, Form) :- 
-  fof(Id, _, TPTP, _),
-  translate(0, TPTP, Form).
+id_tptp(Id, TPTP) :- 
+  fof(Id, _, TPTP, _).
 
 eq(X, X).
 
 ground_all(Term) :- 
   term_variables(Term, Vars),
-  maplist(eq(c), Vars).
+  maplist_cut(eq(c), Vars).
 
 superpositional(Rul) :-
   member(
@@ -285,13 +300,13 @@ abce_1(Cont, Conts) :-
 
 abce_n(Cont, Conts) :-
   abce_1(Cont, TempConts) ->  
-  ( maplist(abce_n, TempConts, Contss), 
+  ( maplist_cut(abce_n, TempConts, Contss), 
     append(Contss, Conts) ) ; 
   ( Conts = [Cont] ).
 
 bc_n(Cont, Conts) :-
   bc_1(Cont, TempConts) ->  
-  ( maplist(bc_n, TempConts, Contss), 
+  ( maplist_cut(bc_n, TempConts, Contss), 
     append(Contss, Conts) ) ; 
   ( Conts = [Cont] ).
 
@@ -310,7 +325,7 @@ clause_lits(Lit, [Lit]) :-
 
 % clause_lits(Cla, Lits) :- 
 %   decom_clause(Cla, _, Goals), 
-%   maplist(fst, Goals, Lits).
+%   maplist_cut(fst, Goals, Lits).
 
 fst((X, _), X).
 snd((_, Y), Y).
@@ -325,7 +340,7 @@ subset_except_one([ElemA | Sub], List, ElemB) :-
   subset_except_one(Sub, List, ElemB). 
   
 find_pivots(Lits, ClaA, ClaB, LitA, LitB) :- 
-  maplist(invert, Lits, CmpLits),
+  maplist_cut(invert, Lits, CmpLits),
   clause_lits(ClaA, LitsA),
   clause_lits(ClaB, LitsB),
   subset_except_one(LitsA, CmpLits, LitA), 
@@ -350,8 +365,8 @@ resolution(QlaA, QlaB, QlaC, Prf) :-
   lits_qla_cls([~ Atom | Lits], QlaP, PrfB).
 
 prove_imp_super(AtomA, TermA = TermB, AtomB, Prf) :-
-  propatom(AtomA),
-  propatom(AtomB),
+  \+ molecular(AtomA),
+  \+ molecular(AtomB),
   prove_imp_super(AtomA, TermA, TermB, AtomB, Prf).
 
 prove_imp_super(~ AtomA, TermA = TermB, ~ AtomB, Prf) :- 
@@ -522,13 +537,13 @@ lits_lit_cls(Lits, Lit, Prf) :-
   lit_lit_cls(Cmp, Lit, Prf).
 
 lit_lit_cls(AtomA, ~ AtomB, Prf) :-
-  propatom(AtomA),
-  propatom(AtomB),
+  \+ molecular(AtomA),
+  \+ molecular(AtomB),
   atom_atom_cls(AtomA, AtomB, Prf).
 
 lit_lit_cls(~ AtomA, AtomB, Prf) :-
-  propatom(AtomA),
-  propatom(AtomB),
+  \+ molecular(AtomA),
+  \+ molecular(AtomB),
   atom_atom_cls(AtomA, AtomB, Prf).
 
 atom_atom_cls(AtomA, AtomB, close) :-
@@ -541,7 +556,7 @@ atom_atom_cls((TermA = TermB), Atom, Prf) :-
 invert(~ Form, Form).
 
 invert(Form, ~ Form) :-
-  not(Form = ~ _).
+  not(Form = (~ _)).
 
 undup(Prem, Conc, Prf) :-
   ade_n(0, ([~ Conc], Prf), _, [(Lits, SubPrf)]), 
@@ -622,9 +637,9 @@ parallel((Terms, Par, FormA, FormB, Prf), NewPCs) :-
 
 ennf(PC) :- 
   parallel(PC, PCs) -> 
-  maplist(ennf, PCs) ;
+  maplist_cut(ennf, PCs) ;
   ( PC = (_, _, FormA, FormB, close), 
-    (FormA = ~ FormB ; FormB = ~ FormA) ). 
+    (FormA = (~ FormB) ; FormB = (~ FormA) ) ). 
 
 nnf(PC) :- 
   parallel(PC, PCs) -> 
@@ -676,11 +691,11 @@ lits_qla_tmt(Lits, Cont) :-
   bc_n(Cont, Conts), 
   maplist(lits_lit_tmt(Lits), Conts). 
 
-elab(goal(_, Prems, Conc, Rul), (Prf, Conc)) :-
+elab((_, Prems, Conc, Rul), (Prf, Conc)) :-
   elab_eva(Prems, Conc, Rul, Prf), 
   ground_all(Prf). 
 
-elab(goal(ID, Prems, Conc, Rul), failure(ID, Prems, Conc, Rul)).
+elab((ID, Prems, Conc, Rul), failure(ID, Prems, Conc, Rul)).
 
 elab_eva([Prem], Conc, cnf_transformation, Prf) :- 
   cnf(Prem, Conc, Prf).
@@ -782,7 +797,7 @@ annotate_aug(Form, aug(Form, Rul)) :-
 
 extra_augs(Trunk, Prf, Augs) :- 
   extra_prems(Trunk, Prf, Prems), 
-  maplist(annotate_aug, Prems, Augs).
+  maplist_cut(annotate_aug, Prems, Augs).
 
 % DNE
 % Alpha
@@ -836,28 +851,24 @@ number_prf(Bch, close, close(Num)) :-
 number_prf(Bch, close, close(NumP, NumN)) :- 
   nth0(NumN, Bch, ~ AtomA),
   nth0(NumP, Bch, AtomB),
-  not(AtomB = ~ _),
+  not(AtomB = (~ _)),
   unify_with_occurs_check(AtomA, AtomB), !.
 
-hyp(Hyp) :- 
+hyp(TPTP) :- 
   fof(_, Type, TPTP, _),
-  member(Type, [axiom, negated_conjecture]),
-  translate(0, TPTP, Hyp).
+  member(Type, [axiom, negated_conjecture]).
 
-aug(Form, ac(Skm)) :- 
+aug(TPTP, ac(Skm)) :- 
   fof(_, _, TPTP, introduced(choice_axiom, _)),
-  aoc_skolem_fun_tptp(TPTP, Skm),
-  translate(0, TPTP, Form).
+  aoc_skolem_fun_tptp(TPTP, Skm).
 
-aug(Form, def) :- 
-  fof(_, _, TPTP, introduced(avatar_definition, _)),
-  translate(0, TPTP, Form).
+aug(TPTP, def) :- 
+  fof(_, _, TPTP, introduced(avatar_definition, _)).
 
-goal(ID, Prems, Conc, Rul) :- 
+goal(ID, TPTPs, TPTP, Rul) :- 
   fof(ID, _, TPTP, inference(Rul, _, IDs)),
   not(Rul = negated_conjecture),
-  translate(0, TPTP, Conc),
-  maplist(id_form, IDs, Prems).
+  maplist_cut(id_tptp, IDs, TPTPs).
 
 remove_params(@(Num, _), Const) :- 
   number_string(Num, NumStr),
@@ -869,7 +880,7 @@ remove_params(Atom, Atom) :-
 
 remove_params(Exp, NewExp) :-
   Exp =.. [Head | Args], 
-  maplist(remove_params, Args, NewArgs),
+  maplist_cut(remove_params, Args, NewArgs),
   NewExp =.. [Head | NewArgs].
 
 prepend([hyp(Form) | Stock], Prf, hyp(Form, NewPrf)) :-
@@ -886,29 +897,39 @@ aug_form(aug(Form, _), Form).
 stitch(Hyps, Augs, Prfs, Prf) :- 
   stitch(Prfs, PrfA), !,
   remove_params(PrfA, PrfB), !,
-  maplist(hyp_form, Hyps, HypForms), !,
-  maplist(aug_form, Augs, AugForms), !,
+  maplist_cut(hyp_form, Hyps, HypForms), 
+  maplist_cut(aug_form, Augs, AugForms), 
   append(HypForms, AugForms, Forms), !,
   extra_augs(Forms, PrfB, Augss), !,
   append([Hyps, Augs, Augss], Stock), !,
   prepend(Stock, PrfB, PrfC), !,
   number_prf([], PrfC, Prf).
 
-write_prem(Num, ID) :-
-  fof(ID, _, Prem, _), 
-  numbervars(Prem, 0, _),
-  write(fof(Num, axiom, Prem)),
-  write(".\n\n").
+write_axiom(Num, Form) :-
+  number_string(Num, NumStr),
+  form_str(Form, FormStr),
+  strings_concat(["\nfof(", NumStr, ", axiom, ", FormStr, ").\n\n"], Str),
+  write(Str).
 
 report_failure(_, (_, _)).
 
-report_failure(tptp, failure(ID, _, _, _)) :-
-  fof(ID, _, Conc, Info), 
-  numbervars(Conc, 0, _),
-  Info = inference(_, _, IDs), 
-  maplist_idx(write_prem, 0, IDs),
-  write(fof(c, conjecture, Conc)), 
-  write(".\n\n\n\n").
+report_failure(tptp, failure(ID, Prems, Conc, Rul)) :-
+  term_string(ID, IDStr),
+  term_string(Rul, RulStr),
+  strings_concat(
+    [
+      "\n\n% -----------------------------------",
+      "\n% Failed step : ", IDStr, 
+      "\n% Inference type : ", RulStr,
+      "\n"
+    ], 
+    Header 
+  ),
+  write(Header),
+  maplist_idx(write_axiom, 0, Prems),
+  form_str(Conc, ConcStr),
+  strings_concat(["\nfof(c, conjecture, ", ConcStr, ").\n\n"], Str),
+  write(Str).
 
 report_failure(graft, failure(_, Prems, Conc, Rul)) :-
   write("Failed lemma : "),
@@ -921,17 +942,40 @@ report_failure(graft, failure(_, Prems, Conc, Rul)) :-
 %   % close(Stream).
 %   true.
 
+foo((_, TPTPs, TPTP, _), (Forms, Form)) :- 
+  maplist_cut(tptp_form(0), TPTPs, Forms),
+  tptp_form(0, TPTP, Form).
+
+get_hyps(Hyps) :-
+  findall(TPTP, hyp(TPTP), TPTPs),
+  maplist_cut(tptp_form(0), TPTPs, Hyps).
+
+tptp_form_aug((TPTP, Rul), (Form, Rul)) :-
+  tptp_form(0, TPTP, Form).
+
+get_augs(Augs) :-
+  findall((TPTP, Rul), aug(TPTP, Rul), Pairs),
+  maplist_cut(tptp_form_aug, Pairs, Augs).
+
+tptp_form_goal((ID, TPTPs, TPTP, Rul), (ID, Forms, Form, Rul)) :-
+  maplist_cut(tptp_form(0), TPTPs, Forms),
+  tptp_form(0, TPTP, Form).
+
+get_goals(Goals) :-
+  findall((ID, TPTPs, TPTP, Rul), goal(ID, TPTPs, TPTP, Rul), Tuples),
+  maplist_cut(tptp_form_goal, Tuples, Goals).
+
 prove(Source, Target) :-
   dynamic(fof/4),
   retractall(fof(_, _, _, _)),
   consult(Source),
-  findall(hyp(Form), hyp(Form), Hyps),
-  findall(aug(Form, Rul), aug(Form, Rul), Augs),
-  findall(goal(ID, Prems, Conc, Rul), goal(ID, Prems, Conc, Rul), Goals),
+  get_hyps(Hyps),
+  get_augs(Augs),
+  get_goals(Goals),
   maplist_cut(elab, Goals, Sols), !,
   (
     member(failure(_, _, _, _), Sols) -> 
-    maplist(report_failure(graft), Sols) ;
+    maplist_cut(report_failure(tptp), Sols) ;
     ( stitch(Hyps, Augs, Sols, Prf), 
       write_file_punct(Target, proof(Prf)) )
   ).
